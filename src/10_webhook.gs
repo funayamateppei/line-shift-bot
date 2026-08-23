@@ -56,7 +56,11 @@ function withLock_(events, fn) {
       }
       return;
     }
-    if (ev.type === 'postback' && ev.replyToken) reply_(ev.replyToken, msgBusy_());
+    if (ev.type === 'postback' && ev.replyToken) {
+      var src = ev.source || {};
+      setTalkUser_(src.type === 'user' ? src.userId : '');
+      reply_(ev.replyToken, msgBusy_());
+    }
   });
 }
 
@@ -70,6 +74,10 @@ var ROSTER_EVENTS = {
 };
 
 function handleEvent_(ev) {
+  // 1 対 1 のときだけ相手を覚える。グループ宛てにメニューを添えないため
+  var src = ev.source || {};
+  setTalkUser_(src.type === 'user' ? src.userId : '');
+
   switch (ev.type) {
     case 'follow':      return onFollow_(ev);
     case 'unfollow':    return onUnfollow_(ev);
@@ -198,6 +206,16 @@ function parseData_(raw) {
  */
 function onMessage_(ev) {
   var source = ev.source || {};
+
+  // グループでの発言から名簿に載せる。
+  // メンバー一覧は無料アカウントでは取れないが、話した人の userId は届く。
+  // Bot が入る前からいた人を見つけられる数少ない手がかりなので、
+  // 返事はせずに記録だけする（グループの雑談に割り込まない）。
+  if (source.type === 'group' && source.userId) {
+    noteGroupSpeaker_(source.groupId, source.userId);
+    return;
+  }
+
   if (source.type !== 'user') return;
 
   var userId = source.userId;
@@ -215,4 +233,25 @@ function onMessage_(ev) {
       reply_(ev.replyToken, msgAskAvailability_(st.ym, st.days, []));
     }
   }
+}
+
+/**
+ * グループで話した人を名簿に載せる。
+ *
+ * 在籍を立てるのは、まだ名簿にいない人だけ。既にいる人には名前を入れるだけで、
+ * 在籍は触らない。〔この人抜きで進める〕で外した人が、しゃべっただけで
+ * 戻ってきては困るため（管理者の判断を打ち消し、集計がまた止まる）。
+ * グループを抜けた人が戻るときは memberJoined が飛ぶので、そちらで足りる。
+ */
+function noteGroupSpeaker_(groupId, userId) {
+  // 設定してあるグループ以外は見ない。Bot は 1 つのグループにしか入れない
+  // 前提だが、入れ違いや招待ミスで別のグループの人が混ざらないようにする
+  if (!groupId || groupId !== settings_().groupId) return;
+
+  var p = rosterFind_(userId);
+  if (p && p.name) return;
+
+  var name = groupMemberName_(groupId, userId);
+  if (p) { rosterUpsert_(userId, { name: name }); return; }
+  rosterUpsert_(userId, { name: name, inGroup: true });
 }

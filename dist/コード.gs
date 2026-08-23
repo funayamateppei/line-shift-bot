@@ -1149,12 +1149,33 @@ function toRows_(ctx) {
 
 var LINE_API = 'https://api.line.me/v2/bot';
 
+/**
+ * いま処理しているイベントの相手（1 対 1 のときだけ入る）。
+ *
+ * 管理者のメニューは quick reply なので、最後のメッセージにしか残らない。
+ * 管理者もメンバーの一人で、カレンダーなどメンバー向けのものが届くたびに
+ * メニューが消えてしまう。相手が管理者なら、何を送るときでも必ず添える。
+ * グループ宛てには添えない（quick reply はその場の全員に見えるため）。
+ */
+var TALK_USER = '';
+
+function setTalkUser_(userId) {
+  TALK_USER = userId || '';
+}
+
+/** 相手が管理者ならメニューを添える */
+function forAdmin_(to, messages) {
+  if (!to || !messages || !messages.length) return messages;
+  if (to !== settings_().adminId) return messages;
+  return withAdminMenu_(messages);
+}
+
 /** ボタンへの返事。通数 0 */
 function reply_(replyToken, messages) {
   if (!replyToken || !messages || !messages.length) return;
   lineCall_('POST', LINE_API + '/message/reply', {
     replyToken: replyToken,
-    messages: messages.slice(0, 5)
+    messages: forAdmin_(TALK_USER, messages).slice(0, 5)
   });
 }
 
@@ -1166,7 +1187,7 @@ function push_(to, messages) {
   if (!to || !messages || !messages.length) return false;
   var res = lineCall_('POST', LINE_API + '/message/push', {
     to: to,
-    messages: messages.slice(0, 5)
+    messages: forAdmin_(to, messages).slice(0, 5)
   });
   return isOk_(res);
 }
@@ -2423,7 +2444,11 @@ function withLock_(events, fn) {
       }
       return;
     }
-    if (ev.type === 'postback' && ev.replyToken) reply_(ev.replyToken, msgBusy_());
+    if (ev.type === 'postback' && ev.replyToken) {
+      var src = ev.source || {};
+      setTalkUser_(src.type === 'user' ? src.userId : '');
+      reply_(ev.replyToken, msgBusy_());
+    }
   });
 }
 
@@ -2437,6 +2462,10 @@ var ROSTER_EVENTS = {
 };
 
 function handleEvent_(ev) {
+  // 1 対 1 のときだけ相手を覚える。グループ宛てにメニューを添えないため
+  var src = ev.source || {};
+  setTalkUser_(src.type === 'user' ? src.userId : '');
+
   switch (ev.type) {
     case 'follow':      return onFollow_(ev);
     case 'unfollow':    return onUnfollow_(ev);
@@ -2565,6 +2594,16 @@ function parseData_(raw) {
  */
 function onMessage_(ev) {
   var source = ev.source || {};
+
+  // グループでの発言から名簿に載せる。
+  // メンバー一覧は無料アカウントでは取れないが、話した人の userId は届く。
+  // Bot が入る前からいた人を見つけられる数少ない手がかりなので、
+  // 返事はせずに記録だけする（グループの雑談に割り込まない）。
+  if (source.type === 'group' && source.userId) {
+    noteGroupSpeaker_(source.groupId, source.userId);
+    return;
+  }
+
   if (source.type !== 'user') return;
 
   var userId = source.userId;
@@ -2582,6 +2621,27 @@ function onMessage_(ev) {
       reply_(ev.replyToken, msgAskAvailability_(st.ym, st.days, []));
     }
   }
+}
+
+/**
+ * グループで話した人を名簿に載せる。
+ *
+ * 在籍を立てるのは、まだ名簿にいない人だけ。既にいる人には名前を入れるだけで、
+ * 在籍は触らない。〔この人抜きで進める〕で外した人が、しゃべっただけで
+ * 戻ってきては困るため（管理者の判断を打ち消し、集計がまた止まる）。
+ * グループを抜けた人が戻るときは memberJoined が飛ぶので、そちらで足りる。
+ */
+function noteGroupSpeaker_(groupId, userId) {
+  // 設定してあるグループ以外は見ない。Bot は 1 つのグループにしか入れない
+  // 前提だが、入れ違いや招待ミスで別のグループの人が混ざらないようにする
+  if (!groupId || groupId !== settings_().groupId) return;
+
+  var p = rosterFind_(userId);
+  if (p && p.name) return;
+
+  var name = groupMemberName_(groupId, userId);
+  if (p) { rosterUpsert_(userId, { name: name }); return; }
+  rosterUpsert_(userId, { name: name, inGroup: true });
 }
 
 // ==================================================== 11_daily.gs

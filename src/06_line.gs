@@ -8,12 +8,33 @@
 
 var LINE_API = 'https://api.line.me/v2/bot';
 
+/**
+ * いま処理しているイベントの相手（1 対 1 のときだけ入る）。
+ *
+ * 管理者のメニューは quick reply なので、最後のメッセージにしか残らない。
+ * 管理者もメンバーの一人で、カレンダーなどメンバー向けのものが届くたびに
+ * メニューが消えてしまう。相手が管理者なら、何を送るときでも必ず添える。
+ * グループ宛てには添えない（quick reply はその場の全員に見えるため）。
+ */
+var TALK_USER = '';
+
+function setTalkUser_(userId) {
+  TALK_USER = userId || '';
+}
+
+/** 相手が管理者ならメニューを添える */
+function forAdmin_(to, messages) {
+  if (!to || !messages || !messages.length) return messages;
+  if (to !== settings_().adminId) return messages;
+  return withAdminMenu_(messages);
+}
+
 /** ボタンへの返事。通数 0 */
 function reply_(replyToken, messages) {
   if (!replyToken || !messages || !messages.length) return;
   lineCall_('POST', LINE_API + '/message/reply', {
     replyToken: replyToken,
-    messages: messages.slice(0, 5)
+    messages: forAdmin_(TALK_USER, messages).slice(0, 5)
   });
 }
 
@@ -25,7 +46,7 @@ function push_(to, messages) {
   if (!to || !messages || !messages.length) return false;
   var res = lineCall_('POST', LINE_API + '/message/push', {
     to: to,
-    messages: messages.slice(0, 5)
+    messages: forAdmin_(to, messages).slice(0, 5)
   });
   return isOk_(res);
 }

@@ -243,6 +243,10 @@ function makeGas() {
         if (fail === 'throw') throw new Error('つながりませんでした');
         if (typeof fail === 'number') return fakeResponse(fail, '{"message":"error"}');
 
+        if (url.indexOf('/members/ids') >= 0) {
+          // 無料アカウントでは使えない
+          return fakeResponse(403, '{"message":"Access to this API is not available for your account"}');
+        }
         if (url.indexOf('/profile/') >= 0 || url.indexOf('/member/') >= 0) {
           const id = url.split('/').pop();
           const name = (gas.names && gas.names[id]) || '';

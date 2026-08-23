@@ -1609,6 +1609,98 @@ section('状態シートのセルが化けないか');
     'Ualice=' + JSON.stringify(ctx.answersFor_('2026-09')['Ualice']));
 }
 
+section('グループでの発言から名簿に載せる');
+{
+  const env = newEnv(new RealDate(2026, 7, 15, 9, 0));
+  const { ctx, gas } = env;
+  joinGroupWith(env, []);                 // Bot だけ招待。誰も検出できていない
+  gas.names['Uzoe'] = '前からいた人';
+  gas.names['Uother'] = 'よその人';
+
+  const say = (uid, gid) => ctx.doPost({ postData: { contents: JSON.stringify({
+    events: [{ type: 'message', source: { type: 'group', groupId: gid, userId: uid },
+      message: { type: 'text', text: 'こんにちは' }, replyToken: 'rt' }]
+  }) } });
+
+  say('Uzoe', 'Cgroup');
+  const zoe = ctx.rosterFind_('Uzoe');
+  check('話した人が名簿に載る', zoe && zoe.inGroup === true, JSON.stringify(zoe));
+  check('名前も取れている', zoe && zoe.name === '前からいた人', JSON.stringify(zoe));
+  check('友だち追加はしていない扱い', zoe && zoe.friend === false, JSON.stringify(zoe));
+
+  // よそのグループの発言は見ない
+  say('Uother', 'Cyoso');
+  check('別のグループの人は載せない', ctx.rosterFind_('Uother') === null);
+
+  // 管理者が外した人は、しゃべっても戻さない。
+  // 名前が取れていなかった人でも同じ（名前があるかどうかで判断しない）
+  ctx.rosterUpsert_('Uzoe', { inGroup: false });
+  say('Uzoe', 'Cgroup');
+  check('外された人は戻さない', ctx.rosterFind_('Uzoe').inGroup === false);
+
+  gas.names['Uname'] = '';
+  say('Uname', 'Cgroup');                       // 名前が取れないまま載る
+  ctx.rosterUpsert_('Uname', { inGroup: false });
+  gas.names['Uname'] = 'あとから取れた名前';
+  say('Uname', 'Cgroup');
+  check('名前が空のまま外された人も戻さない',
+    ctx.rosterFind_('Uname').inGroup === false,
+    JSON.stringify(ctx.rosterFind_('Uname')));
+
+  // 返事はしない（グループの雑談に割り込まない）。
+  // 偽物は名前の問い合わせも記録するので、送信だけを数える
+  const sends = () => gas.sent.filter(x => x.payload && x.payload.messages).length;
+  const before = sends();
+  say('Umute', 'Cgroup');
+  check('グループの発言には返事をしない', sends() === before, sends() - before);
+}
+
+section('管理者のメニューが消えないか');
+{
+  const env = newEnv(new RealDate(2026, 7, 15, 9, 0));
+  const { ctx } = env;
+  joinGroupWith(env, PEOPLE);
+  PEOPLE.forEach(p => follow(env, p.id));
+  follow(env, 'Uadmin');
+  startFor(env, '2026-09');
+  postback(env, 'a=part&v=1', 'Uadmin');
+  postback(env, 'a=num&v=2', 'Uadmin');
+  postback(env, 'a=aok', 'Uadmin');            // ここで全員にカレンダーを配る
+
+  const menuOf = m => m && m.quickReply
+    && m.quickReply.items.map(i => i.action.label).join(',');
+
+  // 管理者にもメンバー向けのカレンダーが届く。そこでメニューが消えると
+  // 管理者は次に何を押せばいいのか分からなくなる
+  const toAdmin = env.gas.sent.filter(s => s.payload && s.payload.to === 'Uadmin');
+  const last = toAdmin[toAdmin.length - 1].payload.messages;
+  check('管理者に届くカレンダーにもメニューが付く',
+    menuOf(last[last.length - 1]) === '開始,状況,中止',
+    JSON.stringify(menuOf(last[last.length - 1])));
+
+  // メンバーには付かない
+  const toMember = env.gas.sent.filter(s => s.payload && s.payload.to === PEOPLE[0].id);
+  const mlast = toMember[toMember.length - 1].payload.messages;
+  check('メンバーには管理者のメニューを出さない',
+    !menuOf(mlast[mlast.length - 1]),
+    JSON.stringify(menuOf(mlast[mlast.length - 1])));
+
+  // 管理者が日を押したときの返事にも残る
+  const before = env.gas.sent.length;
+  postback(env, 'a=mtog&ym=2026-09&s=0&d=' + ctx.state_().days[0], 'Uadmin');
+  const rep = env.gas.sent[before].payload.messages;
+  check('日を押した返事にもメニューが残る',
+    menuOf(rep[rep.length - 1]) === '開始,状況,中止',
+    JSON.stringify(menuOf(rep[rep.length - 1])));
+
+  // グループ宛てには付けない。quick reply はその場の全員に見えてしまう
+  const toGroup = env.gas.sent.filter(s => s.payload && s.payload.to === 'Cgroup');
+  toGroup.forEach(s => {
+    check('グループ宛てにはメニューを付けない',
+      !menuOf(s.payload.messages[s.payload.messages.length - 1]));
+  });
+}
+
 section('送ったメッセージの形');
 {
   // すべての場面を一度ずつ通し、LINE が受け取れない形を作っていないか見る。

@@ -74,6 +74,17 @@ run 09_flow.gs "    appendAnswer_(st.ym, p.userId, p.name || '', []);" '' '未�
 run 03_store.gs "  var r = answerRow_(sh, ym, userId);" "  var r = 0;" '答え直しを上書きせず行を増やす'
 run 08_messages.gs "      uri_('当番表を開く', url)," "      postback_('当番表を開く', 'a=open')," '当番表の URL をボタンにしない'
 run 03_store.gs "    var list = r.cands.length ? r.cands : (allNames || []);" "    var list = r.cands;" '誰も来られない日に候補を出さない'
+
+echo '--- 実機で気づいたところ'
+run 06_line.gs '    messages: forAdmin_(TALK_USER, messages).slice(0, 5)' '    messages: messages.slice(0, 5)' '管理者宛ての返事にメニューを添えない'
+run 06_line.gs '    messages: forAdmin_(to, messages).slice(0, 5)' '    messages: messages.slice(0, 5)' '管理者宛ての push にメニューを添えない'
+run 06_line.gs '  if (to !== settings_().adminId) return messages;' '' 'メンバーにも管理者のメニューを出す'
+run 10_webhook.gs "  if (source.type === 'group' && source.userId) {
+    noteGroupSpeaker_(source.groupId, source.userId);
+    return;
+  }" '' 'グループでの発言から名簿に載せない'
+run 10_webhook.gs '  if (!groupId || groupId !== settings_().groupId) return;' '' 'よそのグループの人も名簿に載せる'
+run 10_webhook.gs '  if (p) { rosterUpsert_(userId, { name: name }); return; }' '' '外された人をしゃべっただけで戻す'
 run 03_store.gs "    if (ymOfCell_(values[i][1]) !== ym) continue;" "    if (String(values[i][1] || '').trim() !== ym) continue;" '日付に化けた対象年月を読めない'
 run 09_flow.gs '  if (!sameAsAsked) {
     reply_(replyToken, msgConfirmSkip_(st.ym, waiting, missing));
@@ -120,7 +131,7 @@ run 10_webhook.gs '    if (name) names.push(name);   // 名前が取れなかっ
 
 echo '--- 3 回目のレビューで直したところ'
 run 06_line.gs '  return res.code >= 200 && res.code < 300;' '  return res.code < 300;' 'つながらないのを成功と数える'
-run 10_webhook.gs "    if (ev.type === 'postback' && ev.replyToken) reply_(ev.replyToken, msgBusy_());" '    if (ev.replyToken) reply_(ev.replyToken, msgBusy_());' '順番待ちの返事を全部のイベントに返す'
+run 10_webhook.gs "    if (ev.type === 'postback' && ev.replyToken) {" '    if (ev.replyToken) {' '順番待ちの返事を全部のイベントに返す'
 run 03_store.gs '  var need = start + values.length - 1;
   if (sh.getMaxRows() < need) sh.insertRowsAfter(sh.getMaxRows(), need - sh.getMaxRows());' '' '行が減ったシートに足さずに書く'
 run 09_flow.gs "  if (monthChoices_(new Date()).indexOf(String(value || '')) < 0) {" "  if (String(value || '').length !== 7) {" '対象月を選択肢と照合しない'

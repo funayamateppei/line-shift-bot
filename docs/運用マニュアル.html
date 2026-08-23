@@ -99,6 +99,7 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:24px}
 <h3>2-1. <span class="btn">開始</span> から <span class="btn">この日程でOK</span> まで</h3>
 <ol>
 <li>15 日に届くメッセージの <span class="btn">開始</span> を押す</li>
+<li>何月分を作るかを押す（<span class="btn">2026年8月分</span> <span class="btn">2026年9月分</span> <span class="btn">2026年10月分</span>）</li>
 <li><span class="btn">1部制（1人）</span> か <span class="btn">2部制（午前・午後）</span> を押す</li>
 <li>当番の日数を押す（1〜月末まで好きな数）</li>
 <li>Bot が均等に散らした日程をカレンダーで見せます
@@ -114,6 +115,7 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:24px}
 次の文をコピーしてグループに送れます。</div>
 <div class="bubble copy">Aさん、Bさん、回答お願いします。Cさん、Bot の友だち追加をお願いします。</div>
 <p>2 つ目の吹き出しを長押し → コピー → グループに貼り付けて送ってください。25 日の朝にも、揃っていなければ同じものが届きます。</p>
+<div class="note">Bot をブロックしてしまった人などが「未追加」に残ると、いつまでも集計が始まりません。そのときは <span class="btn">未追加の人を外して進める</span> を押してください。その人を名簿から外して、残りの人で当番表を作ります。</div>
 
 <h3>2-3. 当番表を確認する</h3>
 <p>全員の回答が揃うと、Bot から当番表が届きます。</p>
@@ -149,8 +151,11 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:24px}
 <h2><span class="num">3</span>困ったとき</h2>
 <div class="tablewrap"><table>
 <tr><th>状況</th><th>どうする</th></tr>
-<tr><td>途中でやめたい</td><td><span class="btn">中止</span> を押す。「中止しました。」と返ってきたら、また <span class="btn">開始</span> から始められる</td></tr>
-<tr><td>何をすればいいかわからなくなった</td><td><span class="btn">開始</span> を押す。「すでに開始されています。続きはこちらです。」と、いまやるべき画面が出る</td></tr>
+<tr><td>途中でやめたい</td><td><span class="btn">中止</span> を押す。「中止しました。」と返ってきたら、また <span class="btn">開始</span> から始められる。<strong>その月に集まっていた回答も消えます</strong>（やり直したときに混ざらないように）</td></tr>
+<tr><td>何をすればいいかわからなくなった</td><td><span class="btn">開始</span> を押す。「すでに2026年9月分は開始されています。続きはこちらです。」と、いまやるべき画面が出る</td></tr>
+<tr><td>いつまでも集計が始まらない</td><td><span class="btn">状況</span> を押す。「未追加」に名前が残っていれば <span class="btn">未追加の人を外して進める</span> を押す</td></tr>
+<tr><td>「グループに送れませんでした」と出た</td><td>しばらく待って <span class="btn">グループに送る</span> を押し直す。押すまで完了扱いにはなりません</td></tr>
+<tr><td>「いま混み合っています」と出た</td><td>同時に何人かが押したときに出ます。もう一度押してください</td></tr>
 <tr><td>日程を間違えて <span class="btn">この日程でOK</span> を押した</td><td><span class="btn">中止</span> → <span class="btn">開始</span> からやり直す。メンバーには新しいカレンダーが届く</td></tr>
 <tr><td>メンバーが「カレンダーが来ない」と言う</td><td>Bot を友だち追加しているか確認。<span class="btn">状況</span> の「未追加」に名前があれば未追加</td></tr>
 <tr><td>メンバーがカレンダーを消してしまった</td><td>その人が Bot に何か一言送れば、カレンダーが出しなおされる</td></tr>
@@ -168,12 +173,12 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:24px}
 <li>当番表の「年月」「日」「曜」「来られる人」の列を編集する（直すのは午前・午後だけ）</li>
 <li>同じ日の午前と午後に同じ人を入れる（入れると赤くなります）</li>
 </ul>
-<div class="note"><code>設定</code> タブの「お知らせ日」「締切日」は変えてかまいません。すぐ反映されます。送る時刻は朝 9 時で固定です。</div>
+<div class="note"><code>設定</code> タブの「お知らせ日」「締切日」は変えてかまいません。セルを押すと ▼ から 1〜28 を選べます。すぐ反映されます。送る時刻は朝 9 時で固定です。</div>
 </section>
 
 <section id="s5">
 <h2><span class="num">5</span>無料で使える範囲</h2>
-<p>LINE の無料枠は月 200 通です。Bot が使うのは、メンバー 20 人で月 45〜65 通ほど。メンバーが 60 人を超えるあたりで無料枠に近づきます。</p>
+<p>LINE の無料枠は月 200 通です。Bot が使うのは、メンバー 20 人で月 43〜63 通ほど。メンバーが 60 人を超えるあたりで無料枠に近づきます。</p>
 </section>
 
 </main>

@@ -114,7 +114,8 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:24px}
 var CHANNEL_ACCESS_TOKEN = '（<span class="keep">チャネルアクセストークン</span>）';</pre></li>
 <li>エディタ上部の関数選択で <code>setup</code> を選び <span class="ui">実行</span>
   <ul><li>初回は権限の許可を求められるので許可する</li><li>スプレッドシートに 5 つのタブ（設定／名簿／状態／回答ログ／当番_YYYY年度）ができる</li></ul></li>
-<li>スプレッドシートの <code>設定</code> タブを開き、<strong>管理者ID</strong> に <span class="keep">管理者のユーザーID</span> を貼る</li>
+<li>スプレッドシートの <code>設定</code> タブを開き、<strong>管理者ID</strong> に <span class="keep">管理者のユーザーID</span> を貼る
+  <ul><li>グループIDは手順 7 で Bot を招待すると自動で入る</li><li>お知らせ日（15）と締切日（25）は既定のままでよい。変えるときは ▼ から 1〜28 を選ぶ</li></ul></li>
 </ol>
 </section>
 
@@ -169,7 +170,7 @@ var CHANNEL_ACCESS_TOKEN = '（<span class="keep">チャネルアクセストー
 <ol>
 <li>管理者の 1 対 1 トークで Bot に何か一言送る → 「いま進めているものはありません。」と返れば OK</li>
 <li>返事の下に <span class="ui">開始</span> <span class="ui">状況</span> <span class="ui">中止</span> が並ぶ。これが管理者のメニュー</li>
-<li><span class="ui">開始</span> → 部制 → 日数 → <span class="ui">この日程でOK</span> まで試し、メンバーにカレンダーが届くことを確認</li>
+<li><span class="ui">開始</span> → 対象月 → 部制 → 日数 → <span class="ui">この日程でOK</span> まで試し、メンバーにカレンダーが届くことを確認</li>
 <li>確認が終わったら <span class="ui">中止</span></li>
 </ol>
 </section>

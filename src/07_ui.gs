@@ -246,17 +246,29 @@ function askCopyText_(pendingPeople, notAddedPeople) {
   return parts.join('');
 }
 
-/** 当番表の本文 */
+/**
+ * 当番表の本文。日付ごとに区切って読ませる。
+ *
+ *   9/3
+ *   午前 Aさん
+ *   午後 Bさん
+ *
+ *   9/5
+ *   午前 Cさん
+ *   午後 —
+ *
+ * 1部制は日付の下に名前を 1 行だけ。
+ */
 function shiftText_(ym, part, rows) {
   var m = ymMonth_(ym);
-  var lines = rows.map(function (r) {
+  var blocks = rows.map(function (r) {
     var head = m + '/' + r.day;
     if (part === PART.二部) {
-      return head + '　午前：' + person_(r.am) + '　午後：' + person_(r.pm);
+      return head + '\n午前 ' + person_(r.am) + '\n午後 ' + person_(r.pm);
     }
-    return head + '　' + person_(r.am);
+    return head + '\n' + person_(r.am);
   });
-  return lines.join('\n');
+  return blocks.join('\n\n');
 }
 
 function person_(name) {

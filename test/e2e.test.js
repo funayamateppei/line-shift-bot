@@ -249,8 +249,10 @@ section('導入から公開まで');
   check('当番表が管理者に届く',
     adminMsg.includes('全員の回答がそろいました。\n2026年9月の当番表です。'), adminMsg);
   check('入れ替えのボタンがある', adminMsg.includes('担当を入れ替える（表を開く）'));
-  check('2部制の行は「9/2　午前：山田さん　午後：佐藤さん」の形',
-    /\d+\/\d+　午前：\S+さん　午後：\S+さん/.test(adminMsg), adminMsg);
+  check('2部制は日付・午前・午後を行で分ける',
+    /\d+\/\d+\n午前 \S+さん\n午後 \S+さん/.test(adminMsg), adminMsg);
+  check('日付ごとに空行で区切る',
+    /\n午後 \S+さん\n\n\d+\/\d+\n午前 /.test(adminMsg), adminMsg);
 
   // 全員が全日出られるので空欄は出ない
   const shift = ctx.readShift_('2026-09');
@@ -275,7 +277,8 @@ section('導入から公開まで');
   postback(env, 'a=publish', 'Uadmin');
   const groupText = pushTextTo(env, 'Cgroup');
   check('グループに当番表を送る', groupText.includes('2026年9月の当番表です。'));
-  check('グループへの当番表も同じ形', /\d+\/\d+　午前：\S+さん　午後：\S+さん/.test(groupText), groupText);
+  check('グループへの当番表も同じ形',
+    /\d+\/\d+\n午前 \S+さん\n午後 \S+さん/.test(groupText), groupText);
   check('管理者に完了を返す', lastReplyText(env).includes('これで完了です'));
   check('段階は公開済み', ctx.state_().stage === '公開済み');
 }
@@ -534,8 +537,10 @@ section('1部制の当番表');
   PEOPLE.forEach(p => postback(env, `a=mok&ym=2026-09&s=${mask}`, p.id));
 
   const msg = pushTextTo(env, 'Uadmin');
-  check('1部制の行は「9/2　山田さん」の形',
-    /\d+\/\d+　\S+さん/.test(msg) && !msg.includes('午前：'), msg);
+  check('1部制は日付の下に名前だけ',
+    /\d+\/\d+\n\S+さん/.test(msg) && !msg.includes('午前'), msg);
+  check('1部制も日付ごとに空行で区切る',
+    /\S+さん\n\n\d+\/\d+\n/.test(msg), msg);
   const shift = ctx.readShift_('2026-09');
   check('1部制の午後は —', shift.rows.every(r => r.pm === '—'));
   check('1部制でも空欄はない', shift.rows.every(r => r.am));

@@ -301,7 +301,7 @@ function msgStatusWaiting_(ym, answeredCount, pendingPeople, notAddedPeople, pre
   var counts = ['回答済み：' + answeredCount + '人'];
   if (pendingPeople.length) counts.push('未回答：' + nameList_(pendingPeople));
   if (notAddedPeople.length) counts.push('未追加：' + nameList_(notAddedPeople));
-  lines.push(counts.join('　'));
+  lines.push(counts.join(' '));
 
   var messages = [];
   var copy = askCopyText_(pendingPeople, notAddedPeople);

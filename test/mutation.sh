@@ -99,8 +99,9 @@ run 11_daily.gs '  if (day === s.noticeDay) sendNotice_(now, s);' '' 'お知ら�
 section '保存'
 run 03_store.gs '    out[id] = parseDays_(values[i][4]);' '    if (!out[id]) out[id] = parseDays_(values[i][4]);' '回答を最新でなく最初の行で見る'
 run 07_ui.gs "    if (part === PART.二部) {
-      return head + '　午前：' + person_(r.am) + '　午後：' + person_(r.pm);
+      return head + '\\n午前 ' + person_(r.am) + '\\n午後 ' + person_(r.pm);
     }" '' '当番表から午前・午後の表示を消す'
+run 07_ui.gs "  return blocks.join('\\n\\n');" "  return blocks.join('\\n');" '日付ごとの区切りをなくす'
 
 section 'レビューで直したところ'
 run 09_flow.gs '  clearAnswers_(st.ym);' '' '中止しても前回の回答を消さない'

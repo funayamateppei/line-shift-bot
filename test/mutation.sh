@@ -59,3 +59,12 @@ run 03_store.gs '    out[id] = parseDays_(values[i][4]);' '    if (!out[id]) out
 run 07_ui.gs "    if (part === PART.二部) {
       return head + '　午前：' + person_(r.am) + '　午後：' + person_(r.pm);
     }" '' '当番表から午前・午後の表示を消す'
+
+echo '--- 均等化（今回の修正箇所）'
+run 05_assign.gs '    if (ctx.load[from] - min < 2) break;   // ここから先はどう渡しても縮まらない
+    if (searchChain_(ctx, from)) return true;' '    if (ctx.load[from] !== ctx.load[sorted[0]]) break;
+    if (searchChain_(ctx, from)) return true;' '出し手を「担当が最も多い人」だけに戻す'
+run 05_assign.gs 'var days = [];
+  workDays.forEach(function (d) { if (days.indexOf(d) < 0) days.push(d); });
+  days.sort' 'var days = workDays.slice();
+  days.sort' '重なった日をまとめない'

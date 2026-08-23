@@ -37,7 +37,9 @@ function buildShift_(workDays, isTwoPart, availability, memberIds, rand) {
 
 function newContext_(workDays, isTwoPart, availability, memberIds) {
   var slots = [];
-  workDays.slice().sort(function (a, b) { return a - b; }).forEach(function (day) {
+  var days = [];
+  workDays.forEach(function (d) { if (days.indexOf(d) < 0) days.push(d); });
+  days.sort(function (a, b) { return a - b; }).forEach(function (day) {
     if (isTwoPart) {
       slots.push({ day: day, part: '午前' });
       slots.push({ day: day, part: '午後' });
@@ -116,35 +118,46 @@ function fillGreedy_(ctx, random) {
 
 // ---------------------------------------------------------------- 2. 均等
 
-/** 差が 1 以下になるまで、玉突きで担当を渡す */
+/** これ以上縮められなくなるまで、玉突きで担当を渡す */
 function balance_(ctx) {
-  for (var guard = 0; guard < 2000; guard++) {
-    if (!handOver_(ctx)) return;
+  for (var guard = 0; guard < 5000; guard++) {
+    if (!handOver_(ctx)) return guard;
   }
+  return 5000;
 }
 
 /**
- * 担当が最も多い人から最も少ない人へ 1 回渡せないか探す。
- * 直接渡せなくても、間に人をはさんだ受け渡し（玉突き）でよい。
- * 渡せたら true。
+ * 担当を 1 回ぶん、多い人から少ない人へ渡す。渡せたら true。
+ *
+ * 出し手は担当が多い人から順に試す。
+ * 「最も多い人」だけを見ると、その人の枠がどれも動かせない（その日はその人しか
+ * 出られない）ときにそこで止まってしまい、真ん中の人から最も少ない人へ渡せる
+ * のに見逃す。だから多い順にすべて試す。
  */
 function handOver_(ctx) {
   var users = Object.keys(ctx.load);
-  if (!users.length) return false;
+  if (users.length < 2) return false;
 
-  var max = -Infinity;
-  var min = Infinity;
-  users.forEach(function (u) {
-    if (ctx.load[u] > max) max = ctx.load[u];
-    if (ctx.load[u] < min) min = ctx.load[u];
-  });
-  if (max - min < 2) return false;
+  var sorted = users.slice().sort(function (a, b) { return ctx.load[b] - ctx.load[a]; });
+  var min = ctx.load[sorted[sorted.length - 1]];
 
-  var from = {};
-  var queue = [];
-  users.forEach(function (u) {
-    if (ctx.load[u] === max) { from[u] = null; queue.push(u); }
-  });
+  for (var i = 0; i < sorted.length; i++) {
+    var from = sorted[i];
+    if (ctx.load[from] - min < 2) break;   // ここから先はどう渡しても縮まらない
+    if (searchChain_(ctx, from)) return true;
+  }
+  return false;
+}
+
+/**
+ * from から受け渡しの列をたどり、担当が 2 回以上少ない人に届いたら反映する。
+ * 直接渡せなくても、間に人をはさんでよい（玉突き）。
+ */
+function searchChain_(ctx, from) {
+  var goal = ctx.load[from] - 2;
+  var parent = {};
+  parent[from] = null;
+  var queue = [from];
 
   while (queue.length) {
     var u = queue.shift();
@@ -157,12 +170,12 @@ function handOver_(ctx) {
       for (var k = 0; k < cands.length; k++) {
         var v = cands[k];
         if (v === u) continue;
-        if (from[v] !== undefined) continue;
+        if (parent[v] !== undefined) continue;
         if (ctx.seat[seatKey_(day, v)] !== undefined) continue;
 
-        from[v] = { user: u, slot: i };
-        if (ctx.load[v] <= max - 2) {
-          applyChain_(ctx, from, v);
+        parent[v] = { user: u, slot: i };
+        if (ctx.load[v] <= goal) {
+          applyChain_(ctx, parent, v);
           return true;
         }
         queue.push(v);
@@ -177,12 +190,12 @@ function handOver_(ctx) {
  * 後ろから動かすので、間の人はいったん空いてから受け取ることになり、
  * 「同じ日に 2 回」は起きない。
  */
-function applyChain_(ctx, from, last) {
+function applyChain_(ctx, parent, last) {
   var steps = [];
   var cur = last;
-  while (from[cur]) {
-    steps.push({ slot: from[cur].slot, to: cur });
-    cur = from[cur].user;
+  while (parent[cur]) {
+    steps.push({ slot: parent[cur].slot, to: cur });
+    cur = parent[cur].user;
   }
   steps.forEach(function (s) { place_(ctx, s.slot, s.to); });
 }

@@ -267,10 +267,13 @@ section('導入から公開まで');
   check('担当回数が均等（差は 1 以内）',
     Math.max(...counts) - Math.min(...counts) <= 1, JSON.stringify(counts));
 
-  // 表を開く
-  env.gas.sent.length = 0;
-  postback(env, 'a=open', 'Uadmin');
-  check('シートの URL を返す', lastReplyText(env).includes('docs.google.com/spreadsheets'));
+  // 表を開くボタンは、押した先で URL を返すのではなく、それ自体がリンク
+  const opener = JSON.stringify(env.gas.sent).match(/"uri":"([^"]+)"/);
+  check('担当を入れ替えるボタンがシートを直接ひらく',
+    !!opener && opener[1].indexOf('docs.google.com/spreadsheets') >= 0,
+    JSON.stringify(opener && opener[1]));
+  check('その年度のシートを指している',
+    !!opener && opener[1].indexOf('#gid=') >= 0, JSON.stringify(opener && opener[1]));
 
   // 公開
   env.gas.sent.length = 0;
@@ -1704,6 +1707,47 @@ section('担当セルの候補');
   check('1部制も読み出せる', one.rows.length === 1);
 }
 
+section('1 年ぶん積み上げても収まるか');
+{
+  // 記録は消さない。年度シートは 1 年ぶんが積み上がっていく。
+  // 毎日を当番の日にする最悪のケースでも、書式を用意した範囲に収まること
+  const env = newEnv(new RealDate(2026, 7, 15, 9, 0));
+  const { ctx } = env;
+  const yms = [];
+  for (let m = 4; m <= 12; m++) yms.push('2026-' + String(m).padStart(2, '0'));
+  for (let m = 1; m <= 3; m++) yms.push('2027-' + String(m).padStart(2, '0'));
+
+  let days = 0;
+  yms.forEach(ym => {
+    const D = ctx.daysInMonth_(ym);
+    const rows = [];
+    for (let d = 1; d <= D; d++) {
+      rows.push({ day: d, weekday: ctx.weekdayOf_(ym, d), am: 'あかり', pm: 'いつき', cands: ['あかり', 'いつき'] });
+    }
+    days += D;
+    ctx.writeShift_(ym, '2部制', rows, ['あかり', 'いつき']);
+  });
+
+  const sh = env.gas.book.getSheetByName('当番_2026年度');
+  check('12 か月ぶんが 1 枚に入る', days === 365, String(days));
+  // 見出し 1 行＋（月見出し 12 行＋日 365 行）。ensureYearSheet_ が書式を置いたのは 2〜401 行
+  check('書式を用意した範囲に収まる', sh.getLastRow() <= 401, String(sh.getLastRow()));
+  check('最初の月が残っている', ctx.readShift_('2026-04').rows.length === 30);
+  check('最後の月も読める', ctx.readShift_('2027-03').rows.length === 31);
+  check('年度をまたぐと別のタブ',
+    ctx.yearSheetName_('2027-04') !== ctx.yearSheetName_('2027-03'),
+    ctx.yearSheetName_('2027-04') + ' / ' + ctx.yearSheetName_('2027-03'));
+
+  // 回答ログも消さない。20 人 × 12 か月
+  yms.forEach(ym => {
+    for (let i = 0; i < 20; i++) ctx.appendAnswer_(ym, 'U' + i, '名' + i, [1, 2, 3]);
+  });
+  const log = env.gas.book.getSheetByName('回答ログ');
+  check('回答ログは月ごとに積み上がる', log.getLastRow() - 1 === 240, String(log.getLastRow() - 1));
+  check('古い月の回答も残っている',
+    Object.keys(ctx.answersFor_('2026-04')).length === 20);
+}
+
 section('当番表の年月が日付に化けないか');
 {
   const env = newEnv(new RealDate(2026, 7, 15, 9, 0));
@@ -1858,7 +1902,6 @@ section('送ったメッセージの形');
   postback(env, `a=mok&ym=2026-09&s=${ctx.daysToMask_(days)}`, 'Ucarol');
   postback(env, 'a=status', 'Uadmin');           // 確認待ちの状況（当番表つき・空欄あり）
   postback(env, 'a=start', 'Uadmin');            // 確認待ちで開始
-  postback(env, 'a=open', 'Uadmin');
   postback(env, 'a=publish', 'Uadmin');
   postback(env, 'a=status', 'Uadmin');           // 公開済みの状況
   env.gas.lockAvailable = false;

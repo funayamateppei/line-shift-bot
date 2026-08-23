@@ -257,13 +257,6 @@ function onSkipNotAdded_(replyToken, data) {
   maybeAggregate_();
 }
 
-/** 7.2 表を開く */
-function onOpenSheet_(replyToken) {
-  var st = state_();
-  if (st.stage !== STAGE.確認待ち) { onStatus_(replyToken); return; }
-  reply_(replyToken, msgOpenSheet_(sheetUrl_(yearSheetName_(st.ym))));
-}
-
 /**
  * 7.3 グループに送る。シートの最新内容をそのまま送る。
  * 送れなかったときは段階を進めない。押し直せば送り直せる。
@@ -285,7 +278,7 @@ function onPublish_(replyToken) {
   }
 
   if (!push_(s.groupId, msgPublish_(st.ym, shift.part || st.part, shift.rows))) {
-    reply_(replyToken, msgPublishFailed_());
+    reply_(replyToken, msgPublishFailed_(st.ym));
     return;
   }
 

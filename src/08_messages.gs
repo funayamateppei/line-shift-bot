@@ -200,22 +200,17 @@ function msgShift_(ym, part, rows, lead) {
   ));
   messages.push(promptFlex_(ymLabel_(ym) + 'の当番表', [], [
     postback_('グループに送る', 'a=publish'),
-    postback_('担当を入れ替える（表を開く）', 'a=open')
+    openSheet_(ym)
   ]));
   return withAdminMenu_(messages);
 }
 
-/** 7.2 表を開く */
-function msgOpenSheet_(url) {
-  return withAdminMenu_([
-    promptFlex_('当番表を開いて担当を直してください', [
-      '当番表を開いて担当を直してください。',
-      '直したあと〔グループに送る〕を押すと、シートの内容でそのまま送ります。'
-    ], [
-      uri_('当番表を開く', url),
-      postback_('グループに送る', 'a=publish')
-    ])
-  ]);
+/**
+ * 7.2 当番表のシートを開くボタン。
+ * URL を直接ひらくので、押してから開くまでに 1 手はさまらない。
+ */
+function openSheet_(ym) {
+  return uri_('担当を入れ替える（表を開く）', sheetUrl_(yearSheetName_(ym)));
 }
 
 /** 7.3 グループへ送る当番表 */
@@ -224,14 +219,14 @@ function msgPublish_(ym, part, rows) {
 }
 
 /** 7.3 グループに送れなかった */
-function msgPublishFailed_() {
+function msgPublishFailed_(ym) {
   return withAdminMenu_([
     promptFlex_('グループに送れませんでした', [
       'グループに送れませんでした。',
       'しばらく待ってから、もう一度〔グループに送る〕を押してください。'
     ], [
       postback_('グループに送る', 'a=publish'),
-      postback_('担当を入れ替える（表を開く）', 'a=open')
+      openSheet_(ym)
     ])
   ]);
 }
@@ -243,7 +238,7 @@ function msgNoShift_(ym, wantCount, gotCount) {
       ymLabel_(ym) + 'の当番表が、決めた日程とそろっていません。',
       '決めた日は' + wantCount + '日、表にあるのは' + gotCount + '日です。',
       '行を消したり「日」の欄を書き換えたりしていないか、表を開いて確かめてください。'
-    ], [postback_('担当を入れ替える（表を開く）', 'a=open')])
+    ], [openSheet_(ym)])
   ]);
 }
 

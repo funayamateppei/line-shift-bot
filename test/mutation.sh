@@ -92,7 +92,7 @@ run 09_flow.gs 'if (!st.days.length) { reply_(replyToken, msgNeedOneDay_()); ret
 section '受け口'
 run 10_webhook.gs '  if (!isAdmin) return;' '' '管理者以外にも管理者の操作をさせる'
 run 10_webhook.gs "    case 'publish': return onPublish_(ev.replyToken);" '' 'グループに送るボタンを効かなくする'
-run 10_webhook.gs "    case 'open':    return onOpenSheet_(ev.replyToken);" '' '表を開くボタンを効かなくする'
+run 08_messages.gs "  return uri_('担当を入れ替える（表を開く）', sheetUrl_(yearSheetName_(ym)));" "  return postback_('担当を入れ替える（表を開く）', 'a=open');" '表を開くのに 1 手はさむ'
 run 11_daily.gs '  if (day === s.dueDay) sendDue_(now, s);' '' '締切日の連絡をしない'
 run 11_daily.gs '  if (day === s.noticeDay) sendNotice_(now, s);' '' 'お知らせを送らない'
 
@@ -106,7 +106,7 @@ run 07_ui.gs "  return blocks.join('\\n\\n');" "  return blocks.join('\\n');" '�
 section 'レビューで直したところ'
 run 09_flow.gs '  clearAnswers_(st.ym);' '' '中止しても前回の回答を消さない'
 run 09_flow.gs '  if (!push_(s.groupId, msgPublish_(st.ym, shift.part || st.part, shift.rows))) {
-    reply_(replyToken, msgPublishFailed_());
+    reply_(replyToken, msgPublishFailed_(st.ym));
     return;
   }' '  push_(s.groupId, msgPublish_(st.ym, shift.part || st.part, shift.rows));
   if (false) {
@@ -115,7 +115,6 @@ run 09_flow.gs '  if (!push_(s.groupId, msgPublish_(st.ym, shift.part || st.part
 run 09_flow.gs '  missing.forEach(function (p) { rosterUpsert_(p.userId, { inGroup: false }); });' '' '未追加の人を外さない'
 run 09_flow.gs "    appendAnswer_(st.ym, p.userId, p.name || '', []);" '' '未回答の人を都合がつく日なしにしない'
 run 03_store.gs "  var r = answerRow_(sh, ym, userId);" "  var r = 0;" '答え直しを上書きせず行を増やす'
-run 08_messages.gs "      uri_('当番表を開く', url)," "      postback_('当番表を開く', 'a=open')," '当番表の URL をボタンにしない'
 run 03_store.gs '  var usable = (cands || []).filter(function (name) { return name !== other; });' '  var usable = (cands || []);' '同じ日の相手を除かずに候補を決める'
 run 03_store.gs '  var list = usable.length ? cands : (allNames || []);' '  var list = cands;' '選べる人がいない枠に名簿を出さない'
 run 03_store.gs "      pickRule_(r.cands, isTwoPart ? r.pm : '', allNames)," "      pickRule_(r.cands, '', allNames)," '午前を決めるときに午後を見ない'

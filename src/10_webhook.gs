@@ -181,7 +181,6 @@ function onPostback_(ev) {
     case 'num':     return onCount_(ev.replyToken, data.v);
     case 'atog':    return onAdminToggle_(ev.replyToken, parseInt(data.d, 10));
     case 'aok':     return onFixDays_(ev.replyToken);
-    case 'open':    return onOpenSheet_(ev.replyToken);
     case 'publish': return onPublish_(ev.replyToken);
   }
 }

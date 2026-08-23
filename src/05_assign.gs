@@ -11,8 +11,11 @@
  *
  * 連投回避は考慮しない。
  *
- * 「その人がその日に入っている」という状態を (人, 日) という 1 回きりの席と見ると、
- * 枠と席の組み合わせ問題になる。埋める数を最大にしてから、席を付け替えて回数を均す。
+ * 埋める数について:
+ *   1 日の枠は多くても 2 つ（午前・午後）で、日どうしは干渉しない。だから
+ *   「候補が少ない枠から埋める」だけで、埋められる枠は必ず埋まる。
+ *   （候補が 1 人の枠を先に処理するので、その 1 人を別の枠に取られることがない）
+ *   総当たりと突き合わせて確かめてある。test/logic.test.js を見ること。
  */
 
 /**
@@ -26,9 +29,8 @@ function buildShift_(workDays, isTwoPart, availability, memberIds, rand) {
   var random = rand || Math.random;
   var ctx = newContext_(workDays, isTwoPart, availability, memberIds);
 
-  fillGreedy_(ctx, random);   // まず入れられるところに入れる
-  fillMaximum_(ctx);          // 付け替えで埋まる枠が残っていれば埋める
-  balance_(ctx);              // 回数を均す（埋まった枠は空けない）
+  fillGreedy_(ctx, random);   // 埋められる枠をすべて埋める
+  balance_(ctx);              // 回数を均す。付け替えるだけなので枠は空かない
 
   return toRows_(ctx);
 }
@@ -85,7 +87,12 @@ function place_(ctx, i, u) {
 
 // ---------------------------------------------------------------- 1. 埋める
 
-/** 候補が少ない枠から、担当回数が最も少ない人を入れる */
+/**
+ * 候補が少ない枠から、担当回数が最も少ない人を入れる（仕様 11 手順 1〜3）。
+ *
+ * 同じ日の午前と午後は候補がまったく同じなので、この並べ替えが変えるのは
+ * 「どの日から手をつけるか」だけ。埋まる数はどの順でも変わらない。
+ */
 function fillGreedy_(ctx, random) {
   var order = ctx.slots.map(function (s, i) { return i; });
   order.sort(function (a, b) {
@@ -105,35 +112,6 @@ function fillGreedy_(ctx, random) {
     var best = pool.filter(function (u) { return ctx.load[u] === min; });
     place_(ctx, i, best[Math.floor(random() * best.length)]);
   });
-}
-
-/**
- * まだ空いている枠について、席の付け替えでたどれるところまでたどり、
- * 空いた席が見つかれば連鎖的にずらして埋める。
- * これで「入れられるのに空いている枠」は残らない。
- */
-function fillMaximum_(ctx) {
-  for (var i = 0; i < ctx.slots.length; i++) {
-    if (ctx.assign[i] !== null) continue;
-    tryTakeSeat_(ctx, i, {});
-  }
-}
-
-function tryTakeSeat_(ctx, i, visited) {
-  var day = ctx.slots[i].day;
-  var cands = ctx.cand[i];
-  for (var k = 0; k < cands.length; k++) {
-    var key = seatKey_(day, cands[k]);
-    if (visited[key]) continue;
-    visited[key] = true;
-
-    var holder = ctx.seat[key];
-    if (holder === undefined || tryTakeSeat_(ctx, holder, visited)) {
-      place_(ctx, i, cands[k]);
-      return true;
-    }
-  }
-  return false;
 }
 
 // ---------------------------------------------------------------- 2. 均等

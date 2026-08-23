@@ -46,6 +46,20 @@ section('当番の日は等間隔か');
   console.log(`    ${cases} 通り`);
 }
 
+section('広い間隔と開始位置がばらけるか');
+{
+  // 30 日を 4 日に分けると 8,8,7,7。並びが固定だと前だけ広くなってしまう
+  const firstGaps = new Set();
+  const starts = new Set();
+  for (let seed = 1; seed <= 200; seed++) {
+    const days = ctx.spreadDays_('2026-09', 4, seeded(seed));
+    firstGaps.add(days[1] - days[0]);
+    starts.add(days[0]);
+  }
+  check('広い間隔が前に固まらない', firstGaps.size > 1, `先頭の間隔 = ${[...firstGaps]}`);
+  check('開始位置がばらける', starts.size > 1, `開始日 = ${[...starts]}`);
+}
+
 // ---------------------------------------------------------------- 割り当て
 
 section('割り当ては総当たりの最適と一致するか');
@@ -158,6 +172,37 @@ function measure(rows, members, isTwoPart) {
   check('担当回数の差が最小', spreadGap === 0, `${spreadGap} 件`);
   check('同じ日に同じ人が二重で入らない', dup === 0, `${dup} 件`);
   check('出られない日に入っていない', illegal === 0, `${illegal} 件`);
+}
+
+section('人数を増やしても埋め残しがないか');
+{
+  // 1 日の枠は多くても 2 つで日どうしは干渉しないので、貪欲法だけで最大まで埋まるはず
+  const members = ['A', 'B', 'C', 'D'];
+  const workDays = [2, 5, 8];
+  const total = 1 << workDays.length;
+  let cases = 0, gap = 0;
+
+  const fillOf = rows => rows.reduce((n, r) => n + (r.am ? 1 : 0) + (r.pm ? 1 : 0), 0);
+
+  for (let a = 0; a < total; a++)
+    for (let b = 0; b < total; b++)
+      for (let c = 0; c < total; c++)
+        for (let d = 0; d < total; d++) {
+          const availability = {};
+          [a, b, c, d].forEach((mask, i) => {
+            availability[members[i]] = workDays.filter((_, k) => (mask >> k) & 1);
+          });
+          for (const twoPart of [false, true]) {
+            for (let seed = 1; seed <= 2; seed++) {
+              const rows = ctx.buildShift_(workDays, twoPart, availability, members,
+                seeded(seed * 131 + a * 7 + b * 3 + c));
+              cases++;
+              if (fillOf(rows) !== brute(workDays, twoPart, availability, members).fill) gap++;
+            }
+          }
+        }
+  console.log(`    ${cases} 通り`);
+  check('埋め残しがない', gap === 0, `${gap} 件`);
 }
 
 console.log(failures === 0 ? '\nすべて通過' : `\n${failures} 件の不一致`);

@@ -2,7 +2,7 @@
  * シートの読み書き。
  *
  * 壊れないために守ること（仕様 12）
- *   ・回答は追記のみ。同時に押されても上書きが起きない
+ *   ・回答は 1 人 1 行。答え直したら上書きする（処理は順番待ちで囲う）
  *   ・状態は処理の最後に 1 回だけ書く
  *   ・設定は毎回シートから読む
  */
@@ -96,7 +96,7 @@ function state_() {
   var sh = sheet_(SHEET.状態);
   var v = sh.getRange(2, 1, 1, 4).getValues()[0];
   var stage = String(v[1] || '').trim() || STAGE.なし;
-  var ym = String(v[0] || '').trim();
+  var ym = ymOfCell_(v[0]);
   var days = parseDays_(v[3]);
   // 手で編集されて、その月に無い日（30日の月の 31 日など）が入っていても落とす。
   // 年月まで壊れているときは判断できないので、そのまま残す（全部消さない）
@@ -129,15 +129,49 @@ function isRunning_(st) {
 
 // ---------------------------------------------------------------- 回答ログ
 
-/** 回答を追記する。上書きはしない */
+/**
+ * 回答を保存する。同じ月の同じ人の行があれば上書きする。
+ *
+ * 処理全体を順番待ちで囲っているので、上書きでも取りこぼさない。
+ * 1 人 1 行に保たれるので、ログを見れば誰がどう答えたかがそのまま分かる。
+ *
+ * 表示形式について。appendRow は書いたセルの表示形式を既定に戻してしまう。
+ * シートを作るときに B 列と E 列へ入れておいた「@」（テキスト）が消え、
+ * 「2026-09」が日付に、「2,4」が数として解釈される。対象年月が日付になると
+ * 照合が通らなくなり、回答が 1 件も拾えない。書く行に毎回 @ を置いてから値を入れる。
+ */
 function appendAnswer_(ym, userId, name, days) {
-  sheet_(SHEET.回答ログ).appendRow([
+  var sh = sheet_(SHEET.回答ログ);
+  var r = answerRow_(sh, ym, userId);
+  if (!r) {
+    r = sh.getLastRow() + 1;
+    if (sh.getMaxRows() < r) sh.insertRowsAfter(sh.getMaxRows(), r - sh.getMaxRows());
+  }
+  sh.getRange(r, 2, 1, 1).setNumberFormat('@');
+  sh.getRange(r, 5, 1, 1).setNumberFormat('@');
+  sh.getRange(r, 1, 1, 5).setValues([[
     stamp_(),
     ym,
     userId,
     name,
     joinDays_(days)
-  ]);
+  ]]);
+}
+
+/**
+ * その月のその人の行を探す。無ければ 0。
+ * 手で編集して同じ組み合わせが 2 行できていたら、後の行を採用する。
+ */
+function answerRow_(sh, ym, userId) {
+  var last = sh.getLastRow();
+  if (last < 2) return 0;
+  var values = sh.getRange(2, 2, last - 1, 2).getValues();
+  for (var i = values.length - 1; i >= 0; i--) {
+    if (ymOfCell_(values[i][0]) !== ym) continue;
+    if (String(values[i][1] || '').trim() !== userId) continue;
+    return i + 2;
+  }
+  return 0;
 }
 
 /**
@@ -151,7 +185,7 @@ function clearAnswers_(ym) {
   var last = sh.getLastRow();
   if (last < 2) return 0;
   var col = sh.getRange(2, 2, last - 1, 1).getValues();
-  var hit = col.map(function (r) { return String(r[0] || '').trim() === ym; });
+  var hit = col.map(function (r) { return ymOfCell_(r[0]) === ym; });
   return deleteMarkedRows_(sh, hit, 2);
 }
 
@@ -189,7 +223,7 @@ function answersFor_(ym) {
   var values = sh.getRange(2, 1, last - 1, 5).getValues();
   var out = Object.create(null);
   for (var i = 0; i < values.length; i++) {
-    if (String(values[i][1] || '').trim() !== ym) continue;
+    if (ymOfCell_(values[i][1]) !== ym) continue;
     var id = String(values[i][2] || '').trim();
     if (!id) continue;
     out[id] = parseDays_(values[i][4]);

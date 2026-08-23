@@ -19,6 +19,18 @@ function makeSheet(name, id) {
     validations[r + ',' + c] = rule || null;
   };
 
+  // 本物のシートは、書いた文字列を人が打ったものとして解釈しなおす。
+  // 「2026-09」は日付になり、getValues() は文字列ではなく Date を返す。
+  // 表示形式が「@」のセルだけが文字列のまま残る。
+  const DATE_LIKE = /^\d{4}-\d{2}(-\d{2})?$/;
+  const coerce = (r, c, v) => {
+    if (typeof v !== 'string') return v;
+    if (formats[r + ',' + c] === '@') return v;
+    if (!DATE_LIKE.test(v)) return v;
+    const iso = v.length === 7 ? v + '-01' : v;
+    return new Date(iso + 'T00:00:00');
+  };
+
   const at = (r, c) => {
     while (data.length < r) data.push([]);
     const row = data[r - 1];
@@ -67,12 +79,14 @@ function makeSheet(name, id) {
       setValues(values) {
         for (let i = 0; i < values.length; i++) {
           const row = at(r + i, c + values[i].length - 1);
-          for (let j = 0; j < values[i].length; j++) row[c - 1 + j] = values[i][j];
+          for (let j = 0; j < values[i].length; j++) {
+            row[c - 1 + j] = coerce(r + i, c + j, values[i][j]);
+          }
         }
         return range;
       },
       setValue(v) {
-        at(r, c)[c - 1] = v;
+        at(r, c)[c - 1] = coerce(r, c, v);
         return range;
       },
       getRow() { return r; },
@@ -124,11 +138,16 @@ function makeSheet(name, id) {
     getLastColumn: lastCol,
     getRange: (r, c, nr, nc) => makeRange(r, c, nr === undefined ? 1 : nr, nc === undefined ? 1 : nc),
     getDataRange: () => makeRange(1, 1, Math.max(lastRow(), 1), Math.max(lastCol(), 1)),
+    // 本物の appendRow は、書いたセルの表示形式を既定に戻してしまう。
+    // 先に「@」を置いておいても消えるので、「2026-09」が日付に化ける。
     appendRow(row) {
       const r = lastRow() + 1;
       if (r > maxRows) maxRows = r;   // 本物は足りなければ行が増える
       const target = at(r, row.length);
-      for (let j = 0; j < row.length; j++) target[j] = row[j];
+      for (let j = 0; j < row.length; j++) {
+        delete formats[r + ',' + (j + 1)];
+        target[j] = coerce(r, j + 1, row[j]);
+      }
       return sheet;
     },
     deleteRow(r) { return sheet.deleteRows(r, 1); },

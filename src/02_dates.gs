@@ -12,6 +12,20 @@ function ymOf_(date) {
   return Utilities.formatDate(date, TZ, 'yyyy-MM');
 }
 
+/**
+ * セルから対象年月を読む。
+ *
+ * 「2026-09」はスプレッドシートが日付として解釈することがあり、そのとき
+ * getValues() は文字列ではなく Date を返す。素直に String() すると
+ * 「Tue Sep 01 2026 …」になって照合が通らず、回答が 1 件も拾えなくなる。
+ * 書き込み側で表示形式を守っていても、手で直されれば同じことが起きる。
+ */
+function ymOfCell_(v) {
+  // instanceof は実行領域が違うと偽になる。中身で判定する
+  if (Object.prototype.toString.call(v) === '[object Date]') return ymOf_(v);
+  return String(v === null || v === undefined ? '' : v).trim();
+}
+
 /** 'YYYY-MM' の翌月 */
 function nextYm_(ym) {
   var y = ymYear_(ym);

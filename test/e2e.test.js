@@ -1538,6 +1538,61 @@ section('状態シートのセルが化けないか');
   check('当番の日の欄は文字として扱う', state.getRange(2, 4).getNumberFormat() === '@');
   check('回答ログの対象年月も文字', log.getRange(2, 2).getNumberFormat() === '@');
   check('回答ログの日付一覧も文字', log.getRange(2, 5).getNumberFormat() === '@');
+
+  // 実機で見つかった形。appendRow は書いたセルの表示形式を既定に戻すので、
+  // シートを作るときに置いた「@」だけを頼りにすると「2026-09」が日付になる。
+  // そうなると対象年月の照合が通らず、回答が 1 件も拾えなくなる。
+  ctx.appendAnswer_('2026-09', 'Ualice', 'あかり', [2, 4]);
+  const wrote = log.getLastRow();
+  check('書いたあとも対象年月は文字のまま',
+    typeof log.getRange(wrote, 2).getValues()[0][0] === 'string',
+    typeof log.getRange(wrote, 2).getValues()[0][0]);
+  check('書いたあとも表示形式が残っている',
+    log.getRange(wrote, 2).getNumberFormat() === '@',
+    log.getRange(wrote, 2).getNumberFormat());
+  check('書いた回答をその月として拾える',
+    Object.prototype.hasOwnProperty.call(ctx.answersFor_('2026-09'), 'Ualice'));
+  check('拾った中身も合っている',
+    ctx.answersFor_('2026-09')['Ualice'].join(',') === '2,4');
+
+  // 答え直したら同じ行を書き換える。行が増えると誰が何行目か分からなくなる
+  const before = log.getLastRow();
+  ctx.appendAnswer_('2026-09', 'Ualice', 'あかり', [7, 13]);
+  check('答え直しても行は増えない', log.getLastRow() === before, log.getLastRow());
+  check('答え直した中身が残る',
+    ctx.answersFor_('2026-09')['Ualice'].join(',') === '7,13',
+    ctx.answersFor_('2026-09')['Ualice'].join(','));
+
+  // 別の人、別の月は別の行
+  ctx.appendAnswer_('2026-09', 'Ubob', 'ぼぶ', [2]);
+  ctx.appendAnswer_('2026-10', 'Ualice', 'あかり', [4]);
+  check('別の人は別の行', log.getLastRow() === before + 2, log.getLastRow());
+  check('別の月は混ざらない',
+    ctx.answersFor_('2026-09')['Ualice'].join(',') === '7,13'
+    && ctx.answersFor_('2026-10')['Ualice'].join(',') === '4');
+
+  // ここから先は、人がシートを直接いじった場合。Bot 経由では起きない形。
+
+  // 同じ人の行を手で 2 つ作られたら、後の行を採用する
+  const dup = log.getLastRow() + 1;
+  log.getRange(dup, 1, 1, 5).setValues([['手で追加', '2026-09', 'Ualice', 'あかり', '25']]);
+  check('手で増やされた行は後のほうを採用する',
+    ctx.answersFor_('2026-09')['Ualice'].join(',') === '25',
+    ctx.answersFor_('2026-09')['Ualice'].join(','));
+  check('答え直すと手で増やされた行のほうを書き換える',
+    (function () {
+      const n = log.getLastRow();
+      ctx.appendAnswer_('2026-09', 'Ualice', 'あかり', [2]);
+      return log.getLastRow() === n
+        && ctx.answersFor_('2026-09')['Ualice'].join(',') === '2';
+    })());
+
+  // 対象年月の欄を日付にされても読めること。
+  // 表示は「2026-09」のままなので、見た目では気づけない
+  log.getRange(dup, 2).setValue(new RealDate(2026, 8, 1));
+  check('日付に化けた対象年月でも拾える',
+    ctx.answersFor_('2026-09')['Ualice'].join(',') === '2',
+    'Ualice=' + JSON.stringify(ctx.answersFor_('2026-09')['Ualice']));
 }
 
 section('送ったメッセージの形');

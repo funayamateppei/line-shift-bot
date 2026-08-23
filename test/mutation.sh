@@ -71,6 +71,8 @@ run 09_flow.gs '  if (!push_(s.groupId, msgPublish_(st.ym, shift.part || st.part
   }' '送れなくても「送りました」と返す'
 run 09_flow.gs '  missing.forEach(function (p) { rosterUpsert_(p.userId, { inGroup: false }); });' '' '未追加の人を外さない'
 run 09_flow.gs "    appendAnswer_(st.ym, p.userId, p.name || '', []);" '' '未回答の人を都合がつく日なしにしない'
+run 03_store.gs "  var r = answerRow_(sh, ym, userId);" "  var r = 0;" '答え直しを上書きせず行を増やす'
+run 03_store.gs "    if (ymOfCell_(values[i][1]) !== ym) continue;" "    if (String(values[i][1] || '').trim() !== ym) continue;" '日付に化けた対象年月を読めない'
 run 09_flow.gs '  if (!sameAsAsked) {
     reply_(replyToken, msgConfirmSkip_(st.ym, waiting, missing));
     return;

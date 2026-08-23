@@ -17,6 +17,11 @@
 LINE の通数は「送った相手の人数」で数える（グループに 1 通送ると在籍人数分）。ボタンへの返事（reply）は数えない。
 目安としてメンバー 60 人あたりまでは無料枠に収まる。
 
+根拠：
+- [LINE Messaging API の料金](https://developers.line.biz/ja/docs/messaging-api/pricing/) — 通数の数え方、reply が無料であること
+- [LINE 公式アカウント 料金プラン](https://www.lycbiz.com/jp/service/line-official-account/plan/) — コミュニケーションプラン 200 通/月
+- [Google Apps Script の割り当て](https://developers.google.com/apps-script/guides/services/quotas) — 無料アカウントの 1 日あたりの上限
+
 ## 文書
 
 - [仕様](docs/design.md)

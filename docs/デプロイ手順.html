@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>当番Bot デプロイ手順</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Zen+Maru+Gothic:wght@700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  --bg:#f6f7fa;--paper:#ffffff;--ink:#1f2933;--muted:#667085;--line:#e1e5ec;
+  --accent:#2457a8;--accent-soft:#e7eefb;--warn:#b4532a;--warn-soft:#fbeee6;--note:#fff7d6;
+  --slate:#1e2a3a;--code:#f1f3f7;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans JP",system-ui,-apple-system,sans-serif;font-size:16px;line-height:1.8}
+header{background:var(--slate);color:#fff;padding:40px 24px 32px}
+header .in{max-width:880px;margin:0 auto}
+header h1{font-family:"Zen Maru Gothic","Noto Sans JP",sans-serif;font-size:30px;margin:0 0 8px;text-wrap:balance}
+header p{margin:0;opacity:.85;max-width:40em}
+.steps{max-width:880px;margin:-18px auto 0;padding:0 16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px}
+.steps a{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:8px 6px;text-align:center;font-size:12px;color:var(--muted);text-decoration:none;line-height:1.4}
+.steps a b{display:block;font-family:"Zen Maru Gothic",sans-serif;font-size:18px;color:var(--accent)}
+.steps a:hover,.steps a:focus-visible{border-color:var(--accent);color:var(--accent);outline:none}
+main{max-width:880px;margin:0 auto;padding:24px 16px 80px}
+section{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:28px 28px 20px;margin:24px 0}
+h2{font-size:22px;margin:0 0 6px;display:flex;align-items:center;gap:12px}
+h2 .num{font-family:"Zen Maru Gothic",sans-serif;background:var(--accent);color:#fff;border-radius:10px;width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;font-size:18px;flex:none}
+.lead{color:var(--muted);font-size:14px;margin:0 0 16px 48px}
+p{margin:0 0 12px;max-width:44em}
+ol,ul{padding-left:1.4em;margin:0 0 12px}
+li{margin:6px 0}
+li ul{margin-top:4px}
+code,pre{font-family:"JetBrains Mono",ui-monospace,Menlo,monospace;font-size:14px}
+code{background:var(--code);padding:1px 6px;border-radius:4px}
+pre{background:var(--code);padding:12px 16px;border-radius:8px;overflow-x:auto;margin:8px 0 14px}
+.important{background:var(--warn-soft);border:1px solid #f0c9b4;border-radius:10px;padding:12px 18px;margin:12px 0 18px}
+.important strong{color:var(--warn)}
+.note{background:var(--note);border-radius:10px;padding:12px 18px;margin:12px 0 18px}
+.keep{display:inline-block;background:var(--accent-soft);color:var(--accent);border-radius:6px;padding:0 8px;font-weight:700;font-size:14px}
+.ui{display:inline-block;border:1px solid #c7cdd8;background:#fff;border-radius:6px;padding:0 8px;font-size:14px;box-shadow:0 1px 0 #c7cdd8}
+table{border-collapse:collapse;width:100%;margin:8px 0 16px;font-size:15px}
+th,td{border-bottom:1px solid var(--line);padding:10px 12px;text-align:left;vertical-align:top}
+th{background:#eef1f6;font-weight:700;white-space:nowrap}
+.tablewrap{overflow-x:auto}
+.check{list-style:none;padding-left:0}
+.check li{padding-left:28px;position:relative}
+.check li::before{content:"☐";position:absolute;left:4px;color:var(--accent)}
+footer{text-align:center;color:var(--muted);font-size:13px;padding:24px}
+@media (max-width:600px){section{padding:20px 16px 12px}.lead{margin-left:0}}
+</style>
+</head>
+<body>
+<header><div class="in">
+  <h1>当番Bot デプロイ手順</h1>
+  <p>Google Apps Script と LINE 公式アカウントを無料で用意し、Bot を動かすまで。所要 30 分ほど。必要なのは Google アカウントと LINE アカウントだけ。</p>
+</div></header>
+<div class="steps">
+  <a href="#s1"><b>1</b>LINE</a><a href="#s2"><b>2</b>シート</a><a href="#s3"><b>3</b>GAS</a><a href="#s4"><b>4</b>公開</a><a href="#s5"><b>5</b>Webhook</a><a href="#s6"><b>6</b>トリガー</a><a href="#s7"><b>7</b>グループ</a><a href="#s8"><b>8</b>確認</a>
+</div>
+<main>
+
+<section>
+<h2>あらかじめ控えるもの</h2>
+<p>途中で 4 つの値が出てきます。メモ帳に貼っておくと楽です。</p>
+<ul class="check">
+<li><span class="keep">チャネルアクセストークン</span>（手順 1）</li>
+<li><span class="keep">管理者のユーザーID</span>（手順 1）</li>
+<li><span class="keep">スプレッドシート ID</span>（手順 2）</li>
+<li><span class="keep">ウェブアプリ URL</span>（手順 4）</li>
+</ul>
+</section>
+
+<section id="s1">
+<h2><span class="num">1</span>LINE 公式アカウントを作る</h2>
+<p class="lead">LINE Developers で Messaging API チャネルを作る</p>
+<ol>
+<li><a href="https://developers.line.biz/console/">https://developers.line.biz/console/</a> に LINE アカウントでログイン</li>
+<li>「プロバイダー」を作る（名前は何でもよい）</li>
+<li>「Messaging API チャネル」を作る
+  <ul><li>チャネル名：表示される Bot の名前（例：当番Bot）</li><li>業種：任意</li></ul></li>
+<li>作ったチャネルの <span class="ui">Messaging API 設定</span> タブで
+  <ul>
+  <li>「チャネルアクセストークン（長期）」を <strong>発行</strong> → <span class="keep">チャネルアクセストークン</span> として控える</li>
+  <li>「応答メッセージ」を <strong>オフ</strong>、「あいさつメッセージ」を <strong>オフ</strong>（LINE Official Account Manager に飛びます）</li>
+  <li>「Webhook の利用」は、手順 5 でオンにする</li>
+  </ul></li>
+<li><span class="ui">チャネル基本設定</span> タブの一番下「あなたのユーザーID」を <span class="keep">管理者のユーザーID</span> として控える（<code>U</code> で始まる 33 文字）</li>
+</ol>
+<div class="note">料金プランは「コミュニケーションプラン」（無料、月 200 通）のままでよい。</div>
+</section>
+
+<section id="s2">
+<h2><span class="num">2</span>スプレッドシートを用意する</h2>
+<p class="lead">空のシートを 1 つ作るだけ</p>
+<ol>
+<li>Google スプレッドシートを新規作成（名前は何でもよい）</li>
+<li>URL の <code>/d/</code> と <code>/edit</code> の間の文字列を <span class="keep">スプレッドシート ID</span> として控える
+<pre>https://docs.google.com/spreadsheets/d/<strong>ここが ID</strong>/edit</pre></li>
+</ol>
+<p>タブは Bot が自動で作るので、何もしなくてよい。</p>
+</section>
+
+<section id="s3">
+<h2><span class="num">3</span>GAS を用意する</h2>
+<p class="lead">コードを貼って、初回セットアップを 1 回動かす</p>
+<ol>
+<li><a href="https://script.google.com/">https://script.google.com/</a> で「新しいプロジェクト」</li>
+<li>プロジェクト名を付ける（例：当番Bot）</li>
+<li>このリポジトリの <code>src/</code> にあるファイルをすべて貼り付ける
+  <ul><li>ファイル名はリポジトリと同じにする</li><li><code>appsscript.json</code> は <span class="ui">プロジェクトの設定</span> → 「appsscript.json をエディタで表示」をオンにして貼る</li></ul></li>
+<li><code>src/00_config.gs</code> の先頭にある 2 つの値を書き換える
+<pre>var SPREADSHEET_ID = '（<span class="keep">スプレッドシート ID</span>）';
+var CHANNEL_ACCESS_TOKEN = '（<span class="keep">チャネルアクセストークン</span>）';</pre></li>
+<li>エディタ上部の関数選択で <code>setup</code> を選び <span class="ui">実行</span>
+  <ul><li>初回は権限の許可を求められるので許可する</li><li>スプレッドシートに 5 つのタブ（設定／名簿／状態／回答ログ／当番_YYYY年度）ができる</li></ul></li>
+<li>スプレッドシートの <code>設定</code> タブを開き、<strong>管理者ID</strong> に <span class="keep">管理者のユーザーID</span> を貼る</li>
+</ol>
+</section>
+
+<section id="s4">
+<h2><span class="num">4</span>ウェブアプリとして公開する</h2>
+<p class="lead">LINE から呼べる URL を作る</p>
+<ol>
+<li>GAS エディタ右上 <span class="ui">デプロイ</span> → 「新しいデプロイ」</li>
+<li>種類：<strong>ウェブアプリ</strong>
+  <ul><li>実行ユーザー：<strong>自分</strong></li><li>アクセスできるユーザー：<strong>全員</strong></li></ul></li>
+<li>「デプロイ」→ 出てきた URL を <span class="keep">ウェブアプリ URL</span> として控える
+<pre>https://script.google.com/macros/s/xxxxxxxx/exec</pre></li>
+</ol>
+<div class="note">コードを直したときは <span class="ui">デプロイを管理</span> → 鉛筆 → バージョン「新バージョン」→ デプロイ。URL は変わりません。<br><code>設定</code> シートの値を変えるだけなら再デプロイは不要です。</div>
+</section>
+
+<section id="s5">
+<h2><span class="num">5</span>Webhook をつなぐ</h2>
+<p class="lead">LINE に GAS の URL を教える</p>
+<ol>
+<li>LINE Developers のチャネル → <span class="ui">Messaging API 設定</span></li>
+<li><strong>Webhook URL</strong> に <span class="keep">ウェブアプリ URL</span> を貼って「更新」</li>
+<li>「検証」を押して「成功」を確認</li>
+<li>「Webhook の利用」を <strong>オン</strong></li>
+</ol>
+</section>
+
+<section id="s6">
+<h2><span class="num">6</span>定時トリガーを設定する</h2>
+<p class="lead">毎朝 9 時台に 1 回動かす</p>
+<ol>
+<li>GAS エディタ左の時計アイコン <span class="ui">トリガー</span> → 「トリガーを追加」</li>
+<li>実行する関数：<code>daily</code><br>イベントのソース：時間主導型<br>時間ベースのトリガー：日付ベースのタイマー<br>時刻：<strong>午前 9〜10 時</strong></li>
+<li>保存</li>
+</ol>
+<p>15 日なら「始めますか」、25 日なら未回答一覧を管理者に送ります。それ以外の日は何もしません。</p>
+</section>
+
+<section id="s7">
+<h2><span class="num">7</span>グループに入れる</h2>
+<p class="lead">Bot を招待して、全員に友だち追加してもらう</p>
+<ol>
+<li>LINE で Bot を友だち追加（QR コードは Messaging API 設定タブにある）</li>
+<li>当番を決めるグループに Bot を招待 → Bot が「友だち追加してください」と送る。<code>設定</code> の <strong>グループID</strong> が自動で入る</li>
+<li><strong>全員に友だち追加してもらう</strong></li>
+</ol>
+<div class="important"><strong>Bot はグループに入る前からいた人を見つけられません。</strong> 全員の友だち追加が済むまで、その人には当番の相談が届きません。詳しくは運用マニュアル 1-1。</div>
+</section>
+
+<section id="s8">
+<h2><span class="num">8</span>動作確認</h2>
+<ol>
+<li>管理者の 1 対 1 トークで Bot を開き、メニューの <span class="ui">状況</span> を押す → 「いま進めているものはありません。」と返れば OK</li>
+<li><span class="ui">開始</span> → 部制 → 日数 → <span class="ui">この日程でOK</span> まで試し、メンバーにカレンダーが届くことを確認</li>
+<li>確認が終わったら <span class="ui">中止</span></li>
+</ol>
+</section>
+
+<section>
+<h2>うまくいかないとき</h2>
+<div class="tablewrap"><table>
+<tr><th>症状</th><th>見るところ</th></tr>
+<tr><td>Webhook の「検証」が失敗する</td><td>手順 4 の「アクセスできるユーザー」が「全員」か。デプロイし直したか</td></tr>
+<tr><td>ボタンを押しても返事がない</td><td>GAS エディタ左「実行数」でエラーを見る。トークンが正しいか</td></tr>
+<tr><td>「始めますか」が来ない</td><td>トリガーが <code>daily</code> で毎日になっているか。<code>設定</code> の管理者ID が正しいか</td></tr>
+<tr><td>グループID が入らない</td><td>Bot をグループから外して、もう一度招待する</td></tr>
+<tr><td>管理者ID がわからない</td><td>LINE Developers → チャネル基本設定 → 一番下「あなたのユーザーID」</td></tr>
+</table></div>
+</section>
+
+<section>
+<h2>更新のしかた</h2>
+<ol>
+<li>GAS にコードを貼り直す</li>
+<li><span class="ui">デプロイを管理</span> → 鉛筆 → 「新バージョン」→ デプロイ</li>
+</ol>
+<p>シートのデータはそのまま残ります。</p>
+</section>
+
+</main>
+<footer>当番Bot デプロイ手順</footer>
+</body>
+</html>

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>当番Bot 運用マニュアル</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Zen+Maru+Gothic:wght@700&display=swap">
+<style>
+:root{
+  --bg:#fbfaf7;--paper:#ffffff;--ink:#2b2f36;--muted:#6b7280;--line:#e6e2d8;
+  --accent:#2f7d5a;--accent-soft:#e8f3ec;--warn:#b4532a;--warn-soft:#fbeee6;--note:#fff7d6;
+  --slate:#2c3e50;--bubble:#eef6ec;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans JP",system-ui,-apple-system,sans-serif;font-size:16px;line-height:1.8}
+header{background:var(--slate);color:#fff;padding:40px 24px 32px}
+header .in{max-width:880px;margin:0 auto}
+header h1{font-family:"Zen Maru Gothic","Noto Sans JP",sans-serif;font-size:30px;margin:0 0 8px;letter-spacing:.02em;text-wrap:balance}
+header p{margin:0;opacity:.85;max-width:40em}
+nav{position:sticky;top:0;background:var(--paper);border-bottom:1px solid var(--line);z-index:5}
+nav .in{max-width:880px;margin:0 auto;display:flex;gap:4px;overflow-x:auto;padding:8px 16px}
+nav a{white-space:nowrap;padding:6px 12px;border-radius:999px;font-size:14px;color:var(--muted);text-decoration:none}
+nav a:hover,nav a:focus-visible{background:var(--accent-soft);color:var(--accent);outline:none}
+main{max-width:880px;margin:0 auto;padding:24px 16px 80px}
+section{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:28px 28px 20px;margin:24px 0}
+h2{font-size:22px;margin:0 0 16px;display:flex;align-items:center;gap:12px}
+h2 .num{font-family:"Zen Maru Gothic",sans-serif;background:var(--accent);color:#fff;border-radius:10px;width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;font-size:18px;flex:none}
+h3{font-size:17px;margin:28px 0 10px;padding-left:12px;border-left:4px solid var(--accent)}
+p{margin:0 0 12px;max-width:44em}
+ol,ul{padding-left:1.4em;margin:0 0 12px}
+li{margin:4px 0}
+.important{background:var(--warn-soft);border:1px solid #f0c9b4;border-radius:10px;padding:14px 18px;margin:12px 0 18px}
+.important strong{color:var(--warn)}
+.note{background:var(--note);border-radius:10px;padding:12px 18px;margin:12px 0 18px}
+.bubble{background:var(--bubble);border-radius:16px 16px 16px 4px;padding:12px 16px;margin:8px 0 14px;max-width:34em;white-space:pre-line;font-size:15px;border:1px solid #d6e8d4}
+.bubble.copy{background:#fff;border:1px dashed var(--accent);border-radius:10px}
+.bubble.copy::before{content:"コピーして送る文";display:block;font-size:12px;color:var(--accent);font-weight:700;margin-bottom:4px}
+.btn{display:inline-block;background:#fff;border:1.5px solid var(--accent);color:var(--accent);border-radius:8px;padding:1px 10px;font-size:14px;font-weight:700;margin:2px 2px;line-height:1.6}
+table{border-collapse:collapse;width:100%;margin:8px 0 16px;font-size:15px}
+th,td{border-bottom:1px solid var(--line);padding:10px 12px;text-align:left;vertical-align:top}
+th{background:#f3f1ea;font-weight:700;white-space:nowrap}
+.tablewrap{overflow-x:auto}
+.who{display:inline-block;font-size:12px;padding:0 8px;border-radius:999px;background:#e8ecf3;color:var(--slate);font-weight:700;white-space:nowrap}
+.who.bot{background:#e1efe6;color:var(--accent)}
+.who.mem{background:#f3e8e1;color:var(--warn)}
+.cell{display:inline-block;padding:2px 10px;border-radius:4px;font-weight:700}
+.cell.green{background:#e8f7ea;border:1px solid #bcd9c0}
+.cell.red{background:#fcd9d9;border:1px solid #f0b0b0}
+.cell.grey{background:#f2f2f2;color:#999}
+footer{text-align:center;color:var(--muted);font-size:13px;padding:24px}
+@media (max-width:600px){section{padding:20px 16px 12px}h2{font-size:20px}}
+</style>
+</head>
+<body>
+<header><div class="in">
+  <h1>当番Bot 運用マニュアル</h1>
+  <p>管理者がすることは「ボタンを押す」と「当番表を直す」の 2 つだけです。</p>
+</div></header>
+<nav><div class="in">
+  <a href="#s1">はじめに 1 回</a><a href="#s2">毎月の流れ</a><a href="#s3">困ったとき</a><a href="#s4">やってはいけないこと</a><a href="#s5">無料の範囲</a>
+</div></nav>
+<main>
+
+<section id="s1">
+<h2><span class="num">1</span>はじめに 1 回だけやること</h2>
+
+<h3>1-1. 全員に Bot を友だち追加してもらう</h3>
+<div class="important"><strong>これが一番大事です。</strong> Bot はグループに入る前からいた人を見つけられません。Bot をグループに入れたら、次の文をグループに送ってください。</div>
+<div class="bubble copy">当番の相談を LINE で受け取るため、この Bot を友だち追加してください。
+（グループに Bot のメッセージが出ているので、アイコンを押して「追加」）</div>
+<p>友だち追加した人から順に、Bot が当番の相談を送れるようになります。追加していない人がいると、Bot が毎月グループで名前を挙げてお願いします。</p>
+
+<h3>1-2. 新しく入る人</h3>
+<p>グループに入ると Bot が「友だち追加してください」と声をかけます。その人にも追加してもらってください。</p>
+
+<h3>1-3. 休む人・辞める人</h3>
+<p><strong>グループを抜けてもらってください。</strong> 抜けた人には以後、当番の相談が届きません。</p>
+<div class="note">Bot をブロックしても意味はありません。グループにいる限り名前が挙がります。</div>
+</section>
+
+<section id="s2">
+<h2><span class="num">2</span>毎月の流れ</h2>
+<div class="tablewrap"><table>
+<tr><th>いつ</th><th>誰が</th><th>すること</th></tr>
+<tr><td>15 日 朝 9 時</td><td><span class="who bot">Bot</span></td><td>管理者に「始めますか？」と送る</td></tr>
+<tr><td>15 日〜</td><td><span class="who">管理者</span></td><td><span class="btn">開始</span>→ 部制 → 日数 → 日程を直す → <span class="btn">この日程でOK</span></td></tr>
+<tr><td>直後</td><td><span class="who bot">Bot</span></td><td>メンバー全員に「都合がつく日」のカレンダーを送る</td></tr>
+<tr><td>〜25 日</td><td><span class="who mem">メンバー</span></td><td>カレンダーで日を押して <span class="btn">確定</span></td></tr>
+<tr><td>全員回答した瞬間</td><td><span class="who bot">Bot</span></td><td>当番表を作って管理者に送る</td></tr>
+<tr><td>25 日 朝 9 時</td><td><span class="who bot">Bot</span></td><td>まだ揃っていなければ、未回答の人の名前を管理者に送る</td></tr>
+<tr><td>揃ったあと</td><td><span class="who">管理者</span></td><td>当番表を確認 → 必要なら直す → <span class="btn">グループに送る</span></td></tr>
+</table></div>
+
+<h3>2-1. <span class="btn">開始</span> から <span class="btn">この日程でOK</span> まで</h3>
+<ol>
+<li>15 日に届くメッセージの <span class="btn">開始</span> を押す</li>
+<li><span class="btn">1部制（1人）</span> か <span class="btn">2部制（午前・午後）</span> を押す</li>
+<li>当番の日数を押す（1〜月末まで好きな数）</li>
+<li>Bot が均等に散らした日程をカレンダーで見せます
+  <ul><li>都合の悪い日を押すと外れる（白）、押し直すと戻る（緑）</li><li>土日や祝日を避けたいときはここで外してください</li></ul></li>
+<li><span class="btn">この日程でOK</span> を押す</li>
+</ol>
+<div class="note">押した瞬間にメンバーへカレンダーが届きます。<strong>押す前なら何度でも直せます。</strong></div>
+
+<h3>2-2. メンバーの回答を待つ</h3>
+<p>Bot は催促しません。回答が揃うかどうかは <span class="btn">状況</span> で見られます。押すと、こういう返事が来ます。</p>
+<div class="bubble">2026年9月分の回答を受け付け中です。
+回答済み：12人　未回答：A、B　未追加：C
+次の文をコピーしてグループに送れます。</div>
+<div class="bubble copy">Aさん、Bさん、回答お願いします。Cさん、Bot の友だち追加をお願いします。</div>
+<p>2 つ目の吹き出しを長押し → コピー → グループに貼り付けて送ってください。25 日の朝にも、揃っていなければ同じものが届きます。</p>
+
+<h3>2-3. 当番表を確認する</h3>
+<p>全員の回答が揃うと、Bot から当番表が届きます。</p>
+<div class="bubble">全員の回答がそろいました。2026年9月の当番表です。
+9/2　午前：Aさん　午後：Bさん
+9/6　午前：Cさん　午後：—
+…</div>
+<p><span class="btn">グループに送る</span> <span class="btn">担当を入れ替える（表を開く）</span></p>
+<ul>
+<li>「—」は担当が決まらなかった枠です（その日に出られる人がいない）</li>
+<li>そのままでよければ <span class="btn">グループに送る</span></li>
+<li>直したいときは <span class="btn">担当を入れ替える（表を開く）</span></li>
+</ul>
+
+<h3>2-4. 当番表を直す</h3>
+<p><span class="btn">担当を入れ替える（表を開く）</span> を押すとスプレッドシートのリンクが届きます。</p>
+<ol>
+<li>リンクを開く</li>
+<li><span class="cell green">薄い緑のセル</span>（午前・午後）を押すと ▼ が出ます</li>
+<li>▼ から人を選ぶ。<strong>その日に出られる人しか出ません</strong></li>
+<li><span class="cell red">赤くなっているセル</span> は担当がいない枠です。埋められる人がいれば選んでください</li>
+<li>直し終わったら LINE に戻って <span class="btn">グループに送る</span></li>
+</ol>
+<p>誰も出られない日は、Bot がくれた次の文をグループに送って協力を募ってください。</p>
+<div class="bubble copy">2026年9月6日(午後)、2026年9月20日の担当が決まっていません。ご都合がつく方は連絡をお願いします。</div>
+<p>手を挙げた人を表に入れて（▼ に出ない人は直接入力）、<span class="btn">グループに送る</span> を押してください。</p>
+
+<h3>2-5. グループに送る</h3>
+<p><span class="btn">グループに送る</span> を押すと、<strong>表のいまの内容</strong>がそのままグループに届きます。これでその月は完了です。</p>
+</section>
+
+<section id="s3">
+<h2><span class="num">3</span>困ったとき</h2>
+<div class="tablewrap"><table>
+<tr><th>状況</th><th>どうする</th></tr>
+<tr><td>途中でやめたい</td><td><span class="btn">中止</span> を押す。「中止しました。」と返ってきたら、また <span class="btn">開始</span> から始められる</td></tr>
+<tr><td>何をすればいいかわからなくなった</td><td><span class="btn">開始</span> を押す。「すでに開始されています。続きはこちらです。」と、いまやるべき画面が出る</td></tr>
+<tr><td>日程を間違えて <span class="btn">この日程でOK</span> を押した</td><td><span class="btn">中止</span> → <span class="btn">開始</span> からやり直す。メンバーには新しいカレンダーが届く</td></tr>
+<tr><td>メンバーが「カレンダーが来ない」と言う</td><td>Bot を友だち追加しているか確認。<span class="btn">状況</span> の「未追加」に名前があれば未追加</td></tr>
+<tr><td>メンバーが回答を間違えた</td><td>集計前なら、もう一度カレンダーで選んで <span class="btn">確定</span> すれば上書きされる。集計後は管理者が表で直す</td></tr>
+<tr><td>当番表を送ったあとに変えたい</td><td>スプレッドシートを直して、グループには自分で連絡する（Bot は送り直さない）</td></tr>
+<tr><td>15 日の連絡が来なかった</td><td><span class="btn">開始</span> を押せばいつでも始められる。連絡はあくまで忘れ防止</td></tr>
+</table></div>
+</section>
+
+<section id="s4">
+<h2><span class="num">4</span>やってはいけないこと</h2>
+<ul>
+<li>スプレッドシートの <code>状態</code> <code>回答ログ</code> タブを編集する（Bot が使う場所です）</li>
+<li><code>名簿</code> タブを手で書き換える（在籍や友だち追加は Bot が管理します）</li>
+<li>当番表の「年月」「日」「曜」「来られる人」の列を編集する（直すのは午前・午後だけ）</li>
+</ul>
+<div class="note"><code>設定</code> タブの「お知らせ日」「締切日」は変えてかまいません。すぐ反映されます。送る時刻は朝 9 時で固定です。</div>
+</section>
+
+<section id="s5">
+<h2><span class="num">5</span>無料で使える範囲</h2>
+<p>LINE の無料枠は月 200 通です。Bot が使うのは、メンバー 20 人で月 45〜65 通ほど。メンバーが 60 人を超えるあたりで無料枠に近づきます。</p>
+</section>
+
+</main>
+<footer>当番Bot 運用マニュアル</footer>
+</body>
+</html>

@@ -161,6 +161,11 @@ function makeGas() {
         const payload = options && options.payload ? JSON.parse(options.payload) : null;
         sent.push({ url, method: options.method, payload });
 
+        // 失敗を起こしたいときに差し込む
+        const fail = gas.failNext.shift();
+        if (fail === 'throw') throw new Error('つながりませんでした');
+        if (typeof fail === 'number') return fakeResponse(fail, '{"message":"error"}');
+
         if (url.indexOf('/profile/') >= 0 || url.indexOf('/member/') >= 0) {
           const id = url.split('/').pop();
           const name = (gas.names && gas.names[id]) || '';
@@ -171,7 +176,10 @@ function makeGas() {
     },
 
     LockService: {
-      getScriptLock: () => ({ tryLock: () => true, releaseLock: () => {} })
+      getScriptLock: () => ({
+        tryLock: () => gas.lockAvailable,
+        releaseLock: () => {}
+      })
     },
 
     ContentService: {
@@ -190,7 +198,11 @@ function makeGas() {
       }
     },
 
-    names: {}
+    names: {},
+
+    // テストから触るつまみ
+    failNext: [],        // 'throw' か HTTP コードを積むと、その順に送信が失敗する
+    lockAvailable: true  // false にすると順番待ちが取れない
   };
   return gas;
 }

@@ -247,12 +247,15 @@ function person_(name) {
 function shortageCopyText_(ym, part, rows) {
   var labels = [];
   rows.forEach(function (r) {
-    if (part === PART.二部) {
-      if (!r.am) labels.push(ymLabel_(ym) + r.day + '日(午前)');
-      if (!r.pm) labels.push(ymLabel_(ym) + r.day + '日(午後)');
-    } else if (!r.am) {
-      labels.push(ymLabel_(ym) + r.day + '日');
+    var head = ymLabel_(ym) + r.day + '日';
+    if (part !== PART.二部) {
+      if (!r.am) labels.push(head);
+      return;
     }
+    // 午前も午後も決まっていない日は、まとめて 1 つに書く
+    if (!r.am && !r.pm) { labels.push(head); return; }
+    if (!r.am) labels.push(head + '(午前)');
+    if (!r.pm) labels.push(head + '(午後)');
   });
   if (!labels.length) return '';
   return labels.join('、') + 'の担当が決まっていません。ご都合がつく方は連絡をお願いします。';

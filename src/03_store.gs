@@ -15,19 +15,22 @@ function rosterAll_() {
   var last = sh.getLastRow();
   if (last < 2) return [];
   var values = sh.getRange(2, 1, last - 1, 5).getValues();
-  var out = [];
+  // 手で編集して同じ userId が 2 行できても二重に数えない。後の行を採用する
+  var byId = {};
+  var order = [];
   for (var i = 0; i < values.length; i++) {
     var id = String(values[i][0] || '').trim();
     if (!id) continue;
-    out.push({
+    if (byId[id] === undefined) order.push(id);
+    byId[id] = {
       userId: id,
       name: String(values[i][1] || '').trim(),
       inGroup: values[i][2] === true,
       friend: values[i][3] === true,
       row: i + 2
-    });
+    };
   }
-  return out;
+  return order.map(function (id) { return byId[id]; });
 }
 
 /** カレンダーを送る相手（在籍 かつ 友だち追加） */
@@ -92,12 +95,14 @@ function state_() {
   var sh = sheet_(SHEET.状態);
   var v = sh.getRange(2, 1, 1, 4).getValues()[0];
   var stage = String(v[1] || '').trim() || STAGE.なし;
-  return {
-    ym: String(v[0] || '').trim(),
-    stage: stage,
-    part: String(v[2] || '').trim(),
-    days: parseDays_(v[3])
-  };
+  var ym = String(v[0] || '').trim();
+  var days = parseDays_(v[3]);
+  if (ym) {
+    // 手で編集されて、その月に無い日（30日の月の 31 日など）が入っていても落とす
+    var last = daysInMonth_(ym);
+    days = days.filter(function (d) { return d <= last; });
+  }
+  return { ym: ym, stage: stage, part: String(v[2] || '').trim(), days: days };
 }
 
 /** 状態を書く。処理の最後に 1 回だけ呼ぶ */
@@ -131,6 +136,24 @@ function appendAnswer_(ym, userId, name, days) {
     name,
     joinDays_(days)
   ]);
+}
+
+/**
+ * その月の回答をすべて消す。
+ * 〔中止〕したときだけ呼ぶ。同じ月をやり直したときに前回の回答が
+ * 生き残って、誤った当番表ができるのを防ぐ。
+ */
+function clearAnswers_(ym) {
+  if (!ym) return 0;
+  var sh = sheet_(SHEET.回答ログ);
+  var last = sh.getLastRow();
+  if (last < 2) return 0;
+  var col = sh.getRange(2, 2, last - 1, 1).getValues();
+  var removed = 0;
+  for (var i = col.length - 1; i >= 0; i--) {
+    if (String(col[i][0] || '').trim() === ym) { sh.deleteRow(i + 2); removed++; }
+  }
+  return removed;
 }
 
 /**

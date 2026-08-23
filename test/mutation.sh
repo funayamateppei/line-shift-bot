@@ -60,7 +60,37 @@ run 07_ui.gs "    if (part === PART.二部) {
       return head + '　午前：' + person_(r.am) + '　午後：' + person_(r.pm);
     }" '' '当番表から午前・午後の表示を消す'
 
-echo '--- 均等化（今回の修正箇所）'
+echo '--- レビューで直したところ'
+run 09_flow.gs '  clearAnswers_(st.ym);' '' '中止しても前回の回答を消さない'
+run 09_flow.gs '  if (!sent) {
+    reply_(replyToken, msgPublishFailed_());
+    return;
+  }' '' '送れなくても「送りました」と返す'
+run 09_flow.gs '  waiting.forEach(function (p) { rosterUpsert_(p.userId, { inGroup: false }); });' '' '未追加の人を外して進めるを効かなくする'
+run 09_flow.gs '  if (st.stage === STAGE.回答受付中 && maybeAggregate_()) {
+    reply_(replyToken, shiftMessages_(st.ym, null));
+    return;
+  }' '' '状況で集計を見直さない'
+run 09_flow.gs "      reply_(replyToken, shiftMessages_(st.ym, '当番表を確認中です。'));" "      reply_(replyToken, withAdminMenu_([text_('当番表を確認中です。')]));" '状況で当番表そのものを返さない'
+run 10_webhook.gs '    events.forEach(function (ev) {
+      if (ev.replyToken) reply_(ev.replyToken, msgBusy_());
+    });' '' '順番待ちが切れても何も返さない'
+run 10_webhook.gs "    case 'ym':      return onPickMonth_(ev.replyToken, data.v);" '' '対象月のボタンを効かなくする'
+run 10_webhook.gs "    case 'skip':    return onSkipNotAdded_(ev.replyToken);" '' '未追加の人を外すボタンを効かなくする'
+run 10_webhook.gs '  // この人が最後の未追加者だったなら、これでそろう
+  maybeAggregate_();' '' '友だち追加でそろっても集計しない'
+run 06_line.gs '  return res.code < 300;' '  return true;' '送信の失敗を無視する'
+run 06_line.gs '  var res;
+  try {
+    res = UrlFetchApp.fetch(url, options);
+  } catch (err) {
+    log_(' "  var res = UrlFetchApp.fetch(url, options);
+  if (false) {
+    log_(" 'つながらなかったときに処理を止めてしまう'
+run 07_ui.gs '    if (!r.am && !r.pm) { labels.push(head); return; }' '' '両方空の日を 2 回書く'
+run 03_store.gs '    if (byId[id] === undefined) order.push(id);' '    order.push(id);' '名簿の重複行をまとめない'
+
+echo '--- 均等化'
 run 05_assign.gs '    if (ctx.load[from] - min < 2) break;   // ここから先はどう渡しても縮まらない
     if (searchChain_(ctx, from)) return true;' '    if (ctx.load[from] !== ctx.load[sorted[0]]) break;
     if (searchChain_(ctx, from)) return true;' '出し手を「担当が最も多い人」だけに戻す'

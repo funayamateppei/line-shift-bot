@@ -17,15 +17,20 @@ function reply_(replyToken, messages) {
   });
 }
 
-/** こちらから送る。通数は相手の人数分 */
+/**
+ * こちらから送る。通数は相手の人数分。
+ * 送れたかどうかを返す。届いていないのに「送りました」と言わないため。
+ */
 function push_(to, messages) {
-  if (!to || !messages || !messages.length) return;
-  lineCall_('POST', LINE_API + '/message/push', {
+  if (!to || !messages || !messages.length) return false;
+  var res = lineCall_('POST', LINE_API + '/message/push', {
     to: to,
     messages: messages.slice(0, 5)
   });
+  return res.code < 300;
 }
 
+/** 送信。つながらなかった場合も落とさず、失敗として返す */
 function lineCall_(method, url, payload) {
   var options = {
     method: method,
@@ -35,7 +40,13 @@ function lineCall_(method, url, payload) {
   };
   if (payload) options.payload = JSON.stringify(payload);
 
-  var res = UrlFetchApp.fetch(url, options);
+  var res;
+  try {
+    res = UrlFetchApp.fetch(url, options);
+  } catch (err) {
+    log_('LINE ' + method + ' ' + url + ' → つながりませんでした: ' + err);
+    return { code: 0, text: '' };
+  }
   var code = res.getResponseCode();
   if (code >= 300) {
     log_('LINE ' + method + ' ' + url + ' → ' + code + ' ' + res.getContentText());

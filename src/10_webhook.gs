@@ -9,7 +9,7 @@ function doPost(e) {
   try {
     var body = JSON.parse(e.postData.contents);
     var events = body.events || [];
-    if (events.length) withLock_(function () {
+    if (events.length) withLock_(events, function () {
       events.forEach(function (ev) {
         try {
           handleEvent_(ev);
@@ -24,11 +24,18 @@ function doPost(e) {
   return ContentService.createTextOutput('OK');
 }
 
-/** シートの読み書きが重ならないようにする */
-function withLock_(fn) {
+/**
+ * シートの読み書きが重ならないようにする。
+ * 順番が回ってこなかったときは、押した人に「もう一度押してください」と返す。
+ * LINE は送り直してくれないので、黙って捨てると本人が気づけない。
+ */
+function withLock_(events, fn) {
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) {
     log_('ほかの処理が動いているため見送りました');
+    events.forEach(function (ev) {
+      if (ev.replyToken) reply_(ev.replyToken, msgBusy_());
+    });
     return;
   }
   try {
@@ -67,6 +74,9 @@ function onFollow_(ev) {
     messages = messages.concat(msgAskAvailability_(st.ym, st.days, []));
   }
   reply_(ev.replyToken, messages);
+
+  // この人が最後の未追加者だったなら、これでそろう
+  maybeAggregate_();
 }
 
 /** 友だち追加を外された。こちらからは送れないので記録だけ */
@@ -131,6 +141,8 @@ function onPostback_(ev) {
     case 'start':   return onStart_(ev.replyToken);
     case 'status':  return onStatus_(ev.replyToken);
     case 'cancel':  return onCancel_(ev.replyToken);
+    case 'skip':    return onSkipNotAdded_(ev.replyToken);
+    case 'ym':      return onPickMonth_(ev.replyToken, data.v);
     case 'part':    return onPart_(ev.replyToken, data.v);
     case 'num':     return onCount_(ev.replyToken, data.v);
     case 'atog':    return onAdminToggle_(ev.replyToken, parseInt(data.d, 10));

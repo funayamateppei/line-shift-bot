@@ -11,14 +11,16 @@ function onStart_(replyToken) {
   var st = state_();
 
   if (!isRunning_(st) || st.stage === STAGE.公開済み) {
-    var ym = targetYm_(new Date());
-    reply_(replyToken, msgAskPart_(ym, null));
-    saveState_({ ym: ym, stage: STAGE.部制待ち, part: '', days: [] });
+    reply_(replyToken, msgAskMonth_(new Date(), null));
+    saveState_({ ym: '', stage: STAGE.対象月待ち, part: '', days: [] });
     return;
   }
 
   var prefix = alreadyStartedPrefix_(st.ym);
   switch (st.stage) {
+    case STAGE.対象月待ち:
+      reply_(replyToken, msgAskMonth_(new Date(), prefix));
+      return;
     case STAGE.部制待ち:
       reply_(replyToken, msgAskPart_(st.ym, prefix));
       return;
@@ -32,9 +34,23 @@ function onStart_(replyToken) {
       reply_(replyToken, statusWaitingMessages_(st.ym, prefix));
       return;
     case STAGE.確認待ち:
-      reply_(replyToken, shiftMessages_(st.ym));
+      reply_(replyToken, shiftMessages_(st.ym, prefix));
       return;
   }
+}
+
+/**
+ * 5.2 何月分を作るかを選んだ。
+ * 押した瞬間の翌月を機械が決めると、公開した直後に押したときに同じ月をもう一度
+ * 始めてしまったり、お知らせを遅れて押したときに月が飛んだりする。管理者に選ばせる。
+ */
+function onPickMonth_(replyToken, value) {
+  var st = state_();
+  if (st.stage !== STAGE.対象月待ち) { onStart_(replyToken); return; }
+  if (!/^\d{4}-\d{2}$/.test(String(value || ''))) { onStart_(replyToken); return; }
+
+  reply_(replyToken, msgAskPart_(value, null));
+  saveState_({ ym: value, stage: STAGE.部制待ち, part: '', days: [] });
 }
 
 /** 5.3 部制を選んだ */
@@ -113,7 +129,17 @@ function sendCalendars_(ym, workDays) {
 /** 8.2 状況 */
 function onStatus_(replyToken) {
   var st = state_();
+
+  // 送信に失敗するなどで集計のきっかけを取りこぼしていた場合の受け皿。
+  // 条件がそろっていればここで集計して、当番表を返す
+  if (st.stage === STAGE.回答受付中 && maybeAggregate_()) {
+    reply_(replyToken, shiftMessages_(st.ym, null));
+    return;
+  }
+
+  st = state_();
   switch (st.stage) {
+    case STAGE.対象月待ち:
     case STAGE.部制待ち:
     case STAGE.日数待ち:
     case STAGE.日程編集中:
@@ -123,7 +149,8 @@ function onStatus_(replyToken) {
       reply_(replyToken, statusWaitingMessages_(st.ym, null));
       return;
     case STAGE.確認待ち:
-      reply_(replyToken, msgStatusReviewing_());
+      // 当番表そのものを返す。集計のときの送信に失敗していても、ここで取り出せる
+      reply_(replyToken, shiftMessages_(st.ym, '当番表を確認中です。'));
       return;
     case STAGE.公開済み:
       reply_(replyToken, msgStatusPublished_(st.ym));
@@ -139,10 +166,34 @@ function statusWaitingMessages_(ym, prefix) {
   return msgStatusWaiting_(ym, Object.keys(answered).length, waiting, notAdded_(), prefix);
 }
 
-/** 8.4 中止 */
+/**
+ * 8.4 中止。
+ * その月の回答も消す。消さないと、同じ月をやり直したときに前回の回答が
+ * 「回答済み」として数えられ、誰か 1 人の確定で集計が走ってしまう。
+ */
 function onCancel_(replyToken) {
+  var st = state_();
   reply_(replyToken, msgCancelled_());
+  clearAnswers_(st.ym);
   clearState_();
+}
+
+/**
+ * 8.2 未追加の人を名簿から外して進める。
+ * ブロックされた人などが残ると「未追加ゼロ」にならず、集計が永久に走らない。
+ * そこから抜け出すための操作。
+ */
+function onSkipNotAdded_(replyToken) {
+  var st = state_();
+  if (st.stage !== STAGE.回答受付中) { onStatus_(replyToken); return; }
+
+  var waiting = notAdded_();
+  if (!waiting.length) { onStatus_(replyToken); return; }
+
+  waiting.forEach(function (p) { rosterUpsert_(p.userId, { inGroup: false }); });
+  reply_(replyToken, msgSkippedNotAdded_(waiting));
+
+  maybeAggregate_();
 }
 
 /** 7.2 表を開く */
@@ -152,14 +203,24 @@ function onOpenSheet_(replyToken) {
   reply_(replyToken, msgOpenSheet_(sheetUrl_(yearSheetName_(st.ym))));
 }
 
-/** 7.3 グループに送る。シートの最新内容をそのまま送る */
+/**
+ * 7.3 グループに送る。シートの最新内容をそのまま送る。
+ * 送れなかったときは段階を進めない。押し直せば送り直せる。
+ */
 function onPublish_(replyToken) {
   var st = state_();
   if (st.stage !== STAGE.確認待ち) { onStatus_(replyToken); return; }
 
   var shift = readShift_(st.ym);
   var s = settings_();
-  if (s.groupId) push_(s.groupId, msgPublish_(st.ym, shift.part || st.part, shift.rows));
+  var sent = s.groupId
+    ? push_(s.groupId, msgPublish_(st.ym, shift.part || st.part, shift.rows))
+    : false;
+
+  if (!sent) {
+    reply_(replyToken, msgPublishFailed_());
+    return;
+  }
 
   reply_(replyToken, msgPublished_(st.ym));
   saveState_({ ym: st.ym, stage: STAGE.公開済み, part: st.part, days: st.days });
@@ -252,15 +313,18 @@ function aggregate_(st) {
 
   writeShift_(st.ym, st.part, rows);
 
-  var s = settings_();
-  if (s.adminId) push_(s.adminId, msgShift_(st.ym, st.part, rows));
-
+  // 段階を先に進める。送信で失敗しても集計をやり直さないため。
+  // やり直すと乱数で割り当てが別物に変わり、管理者に違う当番表が二重に届く。
+  // 送れなかったときは管理者が〔状況〕で取り出せる
   saveState_({ ym: st.ym, stage: STAGE.確認待ち, part: st.part, days: st.days });
+
+  var s = settings_();
+  if (s.adminId) push_(s.adminId, msgShift_(st.ym, st.part, rows, '全員の回答がそろいました。'));
 }
 
 /** 確認待ちのときに当番表をもう一度出す */
-function shiftMessages_(ym) {
+function shiftMessages_(ym, lead) {
   var st = state_();
   var shift = readShift_(ym);
-  return msgShift_(ym, shift.part || st.part, shift.rows);
+  return msgShift_(ym, shift.part || st.part, shift.rows, lead);
 }

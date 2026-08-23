@@ -17,7 +17,8 @@ function msgJoinedGroup_() {
 
 /** 4.4 新しい人がグループに参加した */
 function msgMemberJoined_(name) {
-  return [text_((name || '') + 'さん、はじめまして。\n当番の相談を送るため、この Bot を友だち追加してください。')];
+  var head = name ? name + 'さん、はじめまして。' : 'はじめまして。';
+  return [text_(head + '\n当番の相談を送るため、この Bot を友だち追加してください。')];
 }
 
 // ---------------------------------------------------------------- 5. 管理者（前半）
@@ -31,7 +32,22 @@ function msgNotice_(ym) {
   ]);
 }
 
-/** 5.2 部制をたずねる */
+/** 5.2 何月分を作るかたずねる。当月・翌月・翌々月から選ぶ */
+function msgAskMonth_(now, prefix) {
+  var base = ymOf_(now);
+  var choices = [base, nextYm_(base), nextYm_(nextYm_(base))];
+  var lines = [];
+  if (prefix) lines.push(prefix);
+  lines.push('何月分の当番づくりをしますか？');
+  return withAdminMenu_([
+    promptFlex_('何月分の当番づくりをしますか？', lines,
+      choices.map(function (ym) {
+        return postback_(ymLabel_(ym) + '分', 'a=ym&v=' + ym);
+      }))
+  ]);
+}
+
+/** 5.3 部制をたずねる */
 function msgAskPart_(ym, prefix) {
   var lines = [];
   if (prefix) lines.push(prefix);
@@ -158,8 +174,11 @@ function msgClosed_(ym, isJustAggregated) {
 
 // ---------------------------------------------------------------- 7. 管理者（後半）
 
-/** 7.1 当番表 */
-function msgShift_(ym, part, rows) {
+/**
+ * 7.1 当番表。
+ * lead は先頭に添える 1 行。集計が終わった直後と、あとから見に来たときで変わる。
+ */
+function msgShift_(ym, part, rows, lead) {
   var messages = [];
   var shortage = shortageCopyText_(ym, part, rows);
   if (shortage) {
@@ -170,7 +189,9 @@ function msgShift_(ym, part, rows) {
     ));
     messages.push(text_(shortage));
   }
-  messages.push(text_('全員の回答がそろいました。' + ymLabel_(ym) + 'の当番表です。\n' + shiftText_(ym, part, rows)));
+  messages.push(text_(
+    (lead ? lead + '\n' : '') + ymLabel_(ym) + 'の当番表です。\n' + shiftText_(ym, part, rows)
+  ));
   messages.push(promptFlex_(ymLabel_(ym) + 'の当番表', [], [
     postback_('グループに送る', 'a=publish'),
     postback_('担当を入れ替える（表を開く）', 'a=open')
@@ -192,6 +213,19 @@ function msgOpenSheet_(url) {
 /** 7.3 グループへ送る当番表 */
 function msgPublish_(ym, part, rows) {
   return [text_(ymLabel_(ym) + 'の当番表です。\n' + shiftText_(ym, part, rows))];
+}
+
+/** 7.3 グループに送れなかった */
+function msgPublishFailed_() {
+  return withAdminMenu_([
+    promptFlex_('グループに送れませんでした', [
+      'グループに送れませんでした。',
+      'しばらく待ってから、もう一度〔グループに送る〕を押してください。'
+    ], [
+      postback_('グループに送る', 'a=publish'),
+      postback_('担当を入れ替える（表を開く）', 'a=open')
+    ])
+  ]);
 }
 
 /** 7.3 送ったあとの返事 */
@@ -223,10 +257,10 @@ function msgStatusIdle_() {
 
 /** 8.2 状況：日程を決めている途中 */
 function msgStatusPlanning_(ym) {
+  var body = ym ? ymLabel_(ym) + '分の日程を決めている途中です。'
+                : '何月分を作るか選んでいる途中です。';
   return withAdminMenu_([
-    promptFlex_(ymLabel_(ym) + '分の日程を決めている途中です',
-      [ymLabel_(ym) + '分の日程を決めている途中です。'],
-      [postback_('中止', 'a=cancel')])
+    promptFlex_(body, [body], [postback_('中止', 'a=cancel')])
   ]);
 }
 
@@ -249,17 +283,17 @@ function msgStatusWaiting_(ym, answeredCount, pendingPeople, notAddedPeople, pre
   } else {
     messages.push(text_(lines.join('\n')));
   }
-  messages.push(promptFlex_('中止', [], [postback_('中止', 'a=cancel')]));
+  var actions = [];
+  if (notAddedPeople.length) actions.push(postback_('未追加の人を外して進める', 'a=skip'));
+  actions.push(postback_('中止', 'a=cancel'));
+  messages.push(promptFlex_('操作', [], actions));
   return withAdminMenu_(messages);
 }
 
-/** 8.2 状況：当番表を確認中 */
-function msgStatusReviewing_() {
+/** 8.2 未追加の人を名簿から外した */
+function msgSkippedNotAdded_(people) {
   return withAdminMenu_([
-    promptFlex_('当番表を確認中です', ['当番表を確認中です。'], [
-      postback_('グループに送る', 'a=publish'),
-      postback_('担当を入れ替える（表を開く）', 'a=open')
-    ])
+    text_(nameList_(people) + 'さんを名簿から外しました。\n残りの人で当番表を作ります。')
   ]);
 }
 
@@ -273,7 +307,13 @@ function msgStatusPublished_(ym) {
 
 /** 8.3 進行中に開始を押したときの前置き */
 function alreadyStartedPrefix_(ym) {
+  if (!ym) return 'すでに当番づくりを始めています。続きはこちらです。';
   return 'すでに' + ymLabel_(ym) + '分は開始されています。続きはこちらです。';
+}
+
+/** 混み合って順番が回ってこなかった */
+function msgBusy_() {
+  return [text_('いま混み合っています。\nもう一度押してください。')];
 }
 
 /** 8.4 中止 */

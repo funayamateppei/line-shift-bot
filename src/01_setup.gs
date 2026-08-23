@@ -64,6 +64,17 @@ function ensureSettingsSheet_() {
   styleHeader_(sh, 3);
   sh.getRange(2, 2, 4, 1).setBackground(COLOR.編集可);
   sh.getRange(2, 3, 4, 1).setFontColor(COLOR.補足文字).setFontSize(10);
+
+  // お知らせ日と締切日はプルダウンにする。
+  // 手入力できると 31 のような値が入り、31 日のない月では一度も送られなくなる
+  var dayChoices = [];
+  for (var d = 1; d <= 28; d++) dayChoices.push(d);
+  sh.getRange(4, 2, 2, 1).setDataValidation(
+    SpreadsheetApp.newDataValidation()
+      .requireValueInList(dayChoices, true)
+      .setAllowInvalid(false)
+      .build()
+  );
   sh.setColumnWidth(1, 120);
   sh.setColumnWidth(2, 340);
   sh.setColumnWidth(3, 360);
@@ -177,9 +188,9 @@ function ensureYearSheet_(ym) {
   sh.setRowHeights(2, rows, 34);
 
   sh.setConditionalFormatRules([
-    // 月の見出し行（日が空）
+    // 月の見出し行（年月はあるが日が空）。まだ書かれていない行には当てない
     SpreadsheetApp.newConditionalFormatRule()
-      .whenFormulaSatisfied('=$B2=""')
+      .whenFormulaSatisfied('=AND($A2<>"",$B2="")')
       .setBackground(COLOR.月見出し)
       .setFontColor(COLOR.ヘッダー背景)
       .setBold(true)

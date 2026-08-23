@@ -191,6 +191,12 @@ function ensureYearSheet_(ym) {
       .setBackground(COLOR.空欄警告)
       .setRanges([sh.getRange(2, 4, rows, 2)])
       .build(),
+    // 午前と午後が同じ人になってしまったとき
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenFormulaSatisfied('=AND($B2<>"",$D2<>"",$D2=$E2)')
+      .setBackground(COLOR.空欄警告)
+      .setRanges([sh.getRange(2, 4, rows, 2)])
+      .build(),
     // 1部制の午後
     SpreadsheetApp.newConditionalFormatRule()
       .whenTextEqualTo('—')

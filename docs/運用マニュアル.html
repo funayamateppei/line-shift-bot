@@ -134,7 +134,7 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:24px}
 <li>リンクを開く</li>
 <li><span class="cell green">薄い緑のセル</span>（午前・午後）を押すと ▼ が出ます</li>
 <li>▼ から人を選ぶ。<strong>その日に出られる人しか出ません</strong></li>
-<li><span class="cell red">赤くなっているセル</span> は担当がいない枠です。埋められる人がいれば選んでください</li>
+<li><span class="cell red">赤くなっているセル</span> は直すところです。担当がいない枠か、午前と午後が同じ人になっている枠です</li>
 <li>直し終わったら LINE に戻って <span class="btn">グループに送る</span></li>
 </ol>
 <p>誰も出られない日は、Bot がくれた次の文をグループに送って協力を募ってください。</p>
@@ -166,6 +166,7 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:24px}
 <li>スプレッドシートの <code>状態</code> <code>回答ログ</code> タブを編集する（Bot が使う場所です）</li>
 <li><code>名簿</code> タブを手で書き換える（在籍や友だち追加は Bot が管理します）</li>
 <li>当番表の「年月」「日」「曜」「来られる人」の列を編集する（直すのは午前・午後だけ）</li>
+<li>同じ日の午前と午後に同じ人を入れる（入れると赤くなります）</li>
 </ul>
 <div class="note"><code>設定</code> タブの「お知らせ日」「締切日」は変えてかまいません。すぐ反映されます。送る時刻は朝 9 時で固定です。</div>
 </section>

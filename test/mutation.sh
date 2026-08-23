@@ -76,6 +76,9 @@ run 08_messages.gs "      uri_('当番表を開く', url)," "      postback_('�
 run 03_store.gs "    var list = r.cands.length ? r.cands : (allNames || []);" "    var list = r.cands;" '誰も来られない日に候補を出さない'
 
 echo '--- 実機で気づいたところ'
+run 03_store.gs "  sh.getRange(start, 1, values.length, 1).setNumberFormat('@');" '' '当番表の年月を文字として扱わない'
+run 03_store.gs '    if (ymLabelOfCell_(values[i][0]) !== label) continue;' "    if (String(values[i][0] || '').trim() !== label) continue;" '日付に化けた年月の行を読めない'
+run 03_store.gs '  var hit = col.map(function (r) { return ymLabelOfCell_(r[0]) === label; });' "  var hit = col.map(function (r) { return String(r[0] || '').trim() === label; });" '作り直しで古い月のブロックを消せない'
 run 06_line.gs '    messages: forAdmin_(TALK_USER, messages).slice(0, 5)' '    messages: messages.slice(0, 5)' '管理者宛ての返事にメニューを添えない'
 run 06_line.gs '    messages: forAdmin_(to, messages).slice(0, 5)' '    messages: messages.slice(0, 5)' '管理者宛ての push にメニューを添えない'
 run 06_line.gs '  if (to !== settings_().adminId) return messages;' '' 'メンバーにも管理者のメニューを出す'

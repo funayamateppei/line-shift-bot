@@ -1609,6 +1609,40 @@ section('状態シートのセルが化けないか');
     'Ualice=' + JSON.stringify(ctx.answersFor_('2026-09')['Ualice']));
 }
 
+section('当番表の年月が日付に化けないか');
+{
+  const env = newEnv(new RealDate(2026, 7, 15, 9, 0));
+  const { ctx } = env;
+  const rows = [
+    { day: 2, weekday: '水', am: 'あかり', pm: '—', cands: ['あかり'] },
+    { day: 4, weekday: '金', am: 'いつき', pm: '—', cands: ['いつき'] }
+  ];
+  ctx.writeShift_('2026-09', '1部制', rows, ['あかり', 'いつき']);
+  const sh = env.gas.book.getSheetByName('当番_2026年度');
+
+  // 「2026年9月」は日本語のスプレッドシートが日付として解釈する。
+  // 日付になると年月の照合が通らず、表を読み出せない（グループに送れない）
+  check('年月は文字のまま', typeof sh.getRange(3, 1).getValues()[0][0] === 'string',
+    typeof sh.getRange(3, 1).getValues()[0][0]);
+  check('年月の表示形式も文字', sh.getRange(3, 1).getNumberFormat() === '@',
+    sh.getRange(3, 1).getNumberFormat());
+  check('書いた表をそのまま読み出せる', ctx.readShift_('2026-09').rows.length === 2,
+    JSON.stringify(ctx.readShift_('2026-09')));
+
+  // ここから先は、人がシートを直接いじって日付になってしまった場合。
+  // 過去に作った表がこの形で残っていることがある
+  for (let r = 2; r <= sh.getLastRow(); r++) {
+    sh.getRange(r, 1).setValue(new RealDate(2026, 8, 1));
+  }
+  check('日付に化けていても読み出せる', ctx.readShift_('2026-09').rows.length === 2,
+    JSON.stringify(ctx.readShift_('2026-09')));
+
+  // 作り直したときに古いブロックを消せないと、同じ月が二重に並ぶ
+  ctx.writeShift_('2026-09', '1部制', rows, ['あかり', 'いつき']);
+  check('作り直しても二重にならない', ctx.readShift_('2026-09').rows.length === 2,
+    JSON.stringify(ctx.readShift_('2026-09').rows.map(r => r.day)));
+}
+
 section('グループでの発言から名簿に載せる');
 {
   const env = newEnv(new RealDate(2026, 7, 15, 9, 0));

@@ -26,6 +26,17 @@ function ymOfCell_(v) {
   return String(v === null || v === undefined ? '' : v).trim();
 }
 
+/**
+ * セルから「2026年9月」の見出しを読む。
+ *
+ * 日本語のスプレッドシートは「2026年9月」も日付として解釈する。
+ * ymOfCell_ と同じ理由で、Date で返ってきたら文字列に戻してから比べる。
+ */
+function ymLabelOfCell_(v) {
+  if (Object.prototype.toString.call(v) === '[object Date]') return ymLabel_(ymOf_(v));
+  return String(v === null || v === undefined ? '' : v).trim();
+}
+
 /** 'YYYY-MM' の翌月 */
 function nextYm_(ym) {
   var y = ymYear_(ym);

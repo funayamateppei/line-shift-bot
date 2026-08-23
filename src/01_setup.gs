@@ -7,6 +7,9 @@
 
 /** 導入時に 1 回だけ実行する */
 function setup() {
+  // 日付を年月に戻すときに 1 日ぶんずれて別の月にならないよう、
+  // シート側のタイムゾーンをコードと揃える
+  book_().setSpreadsheetTimeZone(TZ);
   ensureSettingsSheet_();
   ensureRosterSheet_();
   ensureStateSheet_();

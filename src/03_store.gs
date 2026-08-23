@@ -268,6 +268,9 @@ function writeShift_(ym, part, rows, allNames) {
   var start = sh.getLastRow() + 1;
   var need = start + values.length - 1;
   if (sh.getMaxRows() < need) sh.insertRowsAfter(sh.getMaxRows(), need - sh.getMaxRows());
+  // 「2026年9月」は日付として解釈される。日付になると年月の照合が通らず、
+  // 表を読み出せない（グループに送れない）し、作り直しても古い行を消せない
+  sh.getRange(start, 1, values.length, 1).setNumberFormat('@');
   sh.getRange(start, 1, values.length, 6).setValues(values);
 
   // 担当セルのプルダウン。その日に来られる人だけを候補に入れる。
@@ -299,7 +302,7 @@ function removeMonthBlock_(sh, ym) {
   if (last < 2) return;
   var label = ymLabel_(ym);
   var col = sh.getRange(2, 1, last - 1, 1).getValues();
-  var hit = col.map(function (r) { return String(r[0] || '').trim() === label; });
+  var hit = col.map(function (r) { return ymLabelOfCell_(r[0]) === label; });
   deleteMarkedRows_(sh, hit, 2);
 }
 
@@ -318,7 +321,7 @@ function readShift_(ym) {
   var part = '';
   var rows = [];
   for (var i = 0; i < values.length; i++) {
-    if (String(values[i][0] || '').trim() !== label) continue;
+    if (ymLabelOfCell_(values[i][0]) !== label) continue;
     var day = values[i][1];
     if (day === '' || day === null) {
       part = String(values[i][3] || '').trim();

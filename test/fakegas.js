@@ -22,13 +22,15 @@ function makeSheet(name, id) {
   // 本物のシートは、書いた文字列を人が打ったものとして解釈しなおす。
   // 「2026-09」は日付になり、getValues() は文字列ではなく Date を返す。
   // 表示形式が「@」のセルだけが文字列のまま残る。
-  const DATE_LIKE = /^\d{4}-\d{2}(-\d{2})?$/;
+  // 「2026-09」だけでなく「2026年9月」も日付として解釈される
+  const DATE_LIKE = /^(\d{4})-(\d{2})(?:-(\d{2}))?$/;
+  const DATE_JP = /^(\d{4})年(\d{1,2})月(?:(\d{1,2})日)?$/;
   const coerce = (r, c, v) => {
     if (typeof v !== 'string') return v;
     if (formats[r + ',' + c] === '@') return v;
-    if (!DATE_LIKE.test(v)) return v;
-    const iso = v.length === 7 ? v + '-01' : v;
-    return new Date(iso + 'T00:00:00');
+    const m = DATE_LIKE.exec(v) || DATE_JP.exec(v);
+    if (!m) return v;
+    return new Date(Number(m[1]), Number(m[2]) - 1, m[3] ? Number(m[3]) : 1);
   };
 
   const at = (r, c) => {
@@ -181,6 +183,8 @@ function makeBook() {
       return s;
     },
     getSheets: () => sheets.slice(),
+    setSpreadsheetTimeZone() {},
+    getSpreadsheetTimeZone: () => 'Asia/Tokyo',
     deleteSheet(sh) {
       const i = sheets.indexOf(sh);
       if (i >= 0) sheets.splice(i, 1);

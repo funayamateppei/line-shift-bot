@@ -127,6 +127,29 @@ const PEOPLE = [
 
 // ---------------------------------------------------------------- 通し
 
+section('シートの作られ方');
+{
+  const env = newEnv(new RealDate(2026, 7, 15, 9, 0));
+  const { ctx } = env;
+
+  const tabs = env.gas.book.getSheets().map(s => s.getName());
+  check('タブが仕様の順に並ぶ',
+    JSON.stringify(tabs) === JSON.stringify(['設定', '名簿', '状態', '回答ログ', '当番_2026年度']),
+    JSON.stringify(tabs));
+
+  const roster = env.gas.book.getSheetByName('名簿');
+  check('作った直後の名簿は見出しだけ', roster.getLastRow() === 1, '最終行 = ' + roster.getLastRow());
+
+  ev(env, { type: 'follow', replyToken: 'tok', source: { type: 'user', userId: 'Ualice' } });
+  check('1 人目は 2 行目に載る',
+    roster.getRange(2, 1).getValues()[0][0] === 'Ualice',
+    JSON.stringify(roster.getRange(1, 1, 3, 5).getValues()));
+
+  ctx.setup();
+  check('もう一度 setup してもタブは増えない', env.gas.book.getSheets().length === 5);
+  check('もう一度 setup しても中身は消えない', roster.getLastRow() === 2);
+}
+
 section('導入から公開まで');
 {
   const env = newEnv(new RealDate(2026, 7, 15, 9, 0));

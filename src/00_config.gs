@@ -65,12 +65,16 @@ function book_() {
   return SpreadsheetApp.openById(SPREADSHEET_ID);
 }
 
-/** シートを取得する。無ければ作る */
-function sheet_(name) {
+/**
+ * シートを取得する。無ければ作る。
+ * insertSheet は位置を指定しないと今いるタブの手前に入ってしまうので、必ず指定する。
+ */
+function sheet_(name, index) {
   var book = book_();
   var sh = book.getSheetByName(name);
-  if (!sh) sh = book.insertSheet(name);
-  return sh;
+  if (sh) return sh;
+  var at = index === undefined ? book.getSheets().length : index;
+  return book.insertSheet(name, at);
 }
 
 /**

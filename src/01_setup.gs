@@ -51,7 +51,7 @@ function isNewSheet_(sh) {
 // ---------------------------------------------------------------- 設定
 
 function ensureSettingsSheet_() {
-  var sh = sheet_(SHEET.設定);
+  var sh = sheet_(SHEET.設定, 0);
   if (!isNewSheet_(sh)) return sh;
 
   sh.getRange(1, 1, 5, 3).setValues([
@@ -74,7 +74,7 @@ function ensureSettingsSheet_() {
 // ---------------------------------------------------------------- 名簿
 
 function ensureRosterSheet_() {
-  var sh = sheet_(SHEET.名簿);
+  var sh = sheet_(SHEET.名簿, 1);
   if (!isNewSheet_(sh)) return sh;
 
   sh.getRange(1, 1, 1, 5).setValues([['userId', '表示名', '在籍', '友だち追加', '更新日時']]);
@@ -85,9 +85,9 @@ function ensureRosterSheet_() {
   sh.setColumnWidth(4, 100);
   sh.setColumnWidth(5, 160);
 
-  var flags = sh.getRange(2, 3, 999, 2);
-  flags.insertCheckboxes();
-  flags.setHorizontalAlignment('center');
+  // チェックボックスは行を足すときに 1 行ずつ置く。
+  // ここでまとめて置くとセルに FALSE が入り、名簿が 999 行ぶん埋まってしまう。
+  sh.getRange(2, 3, 999, 2).setHorizontalAlignment('center');
   sh.getRange(2, 1, 999, 1).setFontSize(10).setFontColor(COLOR.補足文字);
 
   sh.setConditionalFormatRules([
@@ -109,7 +109,7 @@ function ensureRosterSheet_() {
 // ---------------------------------------------------------------- 状態
 
 function ensureStateSheet_() {
-  var sh = sheet_(SHEET.状態);
+  var sh = sheet_(SHEET.状態, 2);
   if (!isNewSheet_(sh)) return sh;
 
   sh.getRange(1, 1, 2, 4).setValues([
@@ -128,7 +128,7 @@ function ensureStateSheet_() {
 // ---------------------------------------------------------------- 回答ログ
 
 function ensureAnswerSheet_() {
-  var sh = sheet_(SHEET.回答ログ);
+  var sh = sheet_(SHEET.回答ログ, 3);
   if (!isNewSheet_(sh)) return sh;
 
   sh.getRange(1, 1, 1, 5).setValues([['日時', '対象年月', 'userId', '表示名', '都合がつく日']]);
@@ -152,7 +152,7 @@ function ensureYearSheet_(ym) {
   var sh = book.getSheetByName(name);
   if (sh) return sh;
 
-  sh = book.insertSheet(name);
+  sh = book.insertSheet(name, book.getSheets().length);
   sh.getRange(1, 1, 1, 6).setValues([['年月', '日', '曜', '午前', '午後', '来られる人']]);
   styleHeader_(sh, 6);
   sh.getRange(1, 1, 1, 6).setHorizontalAlignment('center');

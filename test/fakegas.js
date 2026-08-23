@@ -63,9 +63,20 @@ function makeSheet(name, id) {
       getColumn() { return c; }
     };
     // 見た目に関わるものは何もしない
+    // 本物の insertCheckboxes はセルに FALSE を書き込む。
+    // つまり内容ができるので getLastRow が動く。ここを甘くすると実機で壊れる。
+    range.insertCheckboxes = () => {
+      for (let i = 0; i < nr; i++) {
+        const row = at(r + i, c + nc - 1);
+        for (let j = 0; j < nc; j++) {
+          if (row[c - 1 + j] === '' || row[c - 1 + j] === undefined) row[c - 1 + j] = false;
+        }
+      }
+      return range;
+    };
     ['setBackground', 'setFontColor', 'setFontWeight', 'setFontSize', 'setFontFamily',
       'setHorizontalAlignment', 'setVerticalAlignment', 'setNumberFormat', 'setBorder',
-      'insertCheckboxes', 'setDataValidation', 'setDataValidations', 'clearDataValidations',
+      'setDataValidation', 'setDataValidations', 'clearDataValidations',
       'setWrap'].forEach(m => { range[m] = () => range; });
     return range;
   }
@@ -100,9 +111,10 @@ function makeBook() {
   let nextId = 100;
   return {
     getSheetByName: n => sheets.find(s => s.getName() === n) || null,
-    insertSheet(n) {
+    insertSheet(n, index) {
       const s = makeSheet(n, nextId++);
-      sheets.push(s);
+      if (index === undefined) sheets.splice(0, 0, s);  // 本物は現在の位置に差し込む
+      else sheets.splice(index, 0, s);
       return s;
     },
     getSheets: () => sheets.slice(),

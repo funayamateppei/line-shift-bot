@@ -73,21 +73,35 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:24px}
 
 <section id="s1">
 <h2><span class="num">1</span>LINE 公式アカウントを作る</h2>
-<p class="lead">LINE Developers で Messaging API チャネルを作る</p>
+<p class="lead">公式アカウントを作り、Messaging API を有効にする</p>
+<div class="important"><strong>作る場所が変わりました。</strong> LINE Developers コンソールから Messaging API チャネルを直接作ることはできません。先に LINE 公式アカウントを作り、そこで Messaging API を有効にします。</div>
 <ol>
-<li><a href="https://developers.line.biz/console/">https://developers.line.biz/console/</a> に LINE アカウントでログイン</li>
-<li>「プロバイダー」を作る（名前は何でもよい）</li>
-<li>「Messaging API チャネル」を作る
-  <ul><li>チャネル名：表示される Bot の名前（例：当番Bot）</li><li>業種：任意</li></ul></li>
-<li>作ったチャネルの <span class="ui">Messaging API 設定</span> タブで
+<li><a href="https://manager.line.biz/">LINE Official Account Manager</a> で <strong>LINE 公式アカウント</strong>を作る
+  <ul><li>アカウント名：表示される Bot の名前（例：当番Bot）</li><li>料金プランは「コミュニケーションプラン」（無料、月 200 通）のままでよい</li></ul></li>
+<li>右上の <span class="ui">設定</span> → 左メニューの <span class="ui">Messaging API</span> → <strong>Messaging API を利用する</strong>
+  <ul><li>ここでプロバイダーを選ぶ（新規で作ってよい）</li><li>有効になると「ステータス：利用中」と Channel ID が表示される</li></ul></li>
+<li>同じ <span class="ui">設定</span> の <span class="ui">応答設定</span> を開き、次の状態にする
   <ul>
-  <li>「チャネルアクセストークン（長期）」を <strong>発行</strong> → <span class="keep">チャネルアクセストークン</span> として控える</li>
-  <li>「応答メッセージ」を <strong>オフ</strong>、「あいさつメッセージ」を <strong>オフ</strong>（LINE Official Account Manager に飛びます）</li>
-  <li>「Webhook の利用」は、手順 5 でオンにする</li>
+  <li><strong>チャット</strong>：オフ</li>
+  <li><strong>あいさつメッセージ</strong>：オフ</li>
+  <li><strong>応答メッセージ</strong>：オフ</li>
+  <li><strong>Webhook</strong>：いまはオフのまま（手順 5 で URL を入れてからオンにします）</li>
+  </ul>
+  <div class="note">オンのままだと、Bot の返事とは別に定型文が届いてしまいます。</div></li>
+<li><span class="ui">設定</span> → <span class="ui">アカウント設定</span> で 2 つ変える
+  <ul>
+  <li><strong>グループトーク・複数人トークへの参加</strong>：<strong>有効</strong>
+    <div class="important">ここが無効だと、グループに招待しても Bot が参加できません。<strong>この Bot はグループに入れないと成立しません。</strong></div></li>
+  <li><strong>写真や動画の受け取り</strong>：<strong>受け取らない</strong>
+    <div class="note">この Bot は画像を一切使いません。1 対 1 のトークで送信機能が消えるだけで、グループでの会話には影響しません。</div></li>
   </ul></li>
+<li>Messaging API の画面の一番下「<strong>LINE Developersコンソール</strong>」のリンクからチャネルを開く
+  <div class="note">有効化のときに選んだプロバイダーの下に入ります。自分で作った別のプロバイダーを見ていると一覧に出てこないので、このリンクから辿るのが確実です。</div></li>
+<li>チャネルの <span class="ui">Messaging API 設定</span> タブで「チャネルアクセストークン（長期）」を <strong>発行</strong> → <span class="keep">チャネルアクセストークン</span> として控える
+  <div class="note">「アサーション署名キー」は別物です。触りません。</div></li>
 <li><span class="ui">チャネル基本設定</span> タブの一番下「あなたのユーザーID」を <span class="keep">管理者のユーザーID</span> として控える（<code>U</code> で始まる 33 文字）</li>
 </ol>
-<div class="note">料金プランは「コミュニケーションプラン」（無料、月 200 通）のままでよい。</div>
+<div class="note">管理者もメンバーの一人です。あとで自分の Bot を友だち追加して、都合がつく日を答えることになります。</div>
 </section>
 
 <section id="s2">
@@ -113,7 +127,8 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:24px}
 <pre>var SPREADSHEET_ID = '（<span class="keep">スプレッドシート ID</span>）';
 var CHANNEL_ACCESS_TOKEN = '（<span class="keep">チャネルアクセストークン</span>）';</pre></li>
 <li>エディタ上部の関数選択で <code>setup</code> を選び <span class="ui">実行</span>
-  <ul><li>初回は権限の許可を求められるので許可する</li><li>スプレッドシートに 5 つのタブ（設定／名簿／状態／回答ログ／当番_YYYY年度）ができる</li></ul></li>
+  <ul><li>初回は権限の許可を求められます。「<strong>このアプリは Google で確認されていません</strong>」と出たら <span class="ui">詳細</span> → 「<span class="ui">（プロジェクト名）（安全ではないページ）に移動</span>」 → <span class="ui">許可</span>
+    <div class="note">審査は他人に配布する公開アプリのための仕組みです。自分のアカウントで自分の書いたスクリプトを動かすときは通す必要がありません。デベロッパー欄が自分のアドレスになっていることだけ確かめてください。</div></li><li>スプレッドシートに 5 つのタブ（設定／名簿／状態／回答ログ／当番_YYYY年度）ができる。もとからあった空のタブは自動で消えます</li></ul></li>
 <li>スプレッドシートの <code>設定</code> タブを開き、<strong>管理者ID</strong> に <span class="keep">管理者のユーザーID</span> を貼る
   <ul><li>グループIDは手順 7 で Bot を招待すると自動で入る</li><li>お知らせ日（15）と締切日（25）は既定のままでよい。変えるときは ▼ から 1〜28 を選ぶ</li></ul></li>
 </ol>
@@ -136,11 +151,14 @@ var CHANNEL_ACCESS_TOKEN = '（<span class="keep">チャネルアクセストー
 <h2><span class="num">5</span>Webhook をつなぐ</h2>
 <p class="lead">LINE に GAS の URL を教える</p>
 <ol>
-<li>LINE Developers のチャネル → <span class="ui">Messaging API 設定</span></li>
+<li>LINE Developers のチャネル → <span class="ui">Messaging API 設定</span> → <strong>Webhook設定</strong></li>
 <li><strong>Webhook URL</strong> に <span class="keep">ウェブアプリ URL</span> を貼って「更新」</li>
-<li>「検証」を押して「成功」を確認</li>
 <li>「Webhook の利用」を <strong>オン</strong></li>
+<li>Official Account Manager の <span class="ui">設定</span> → <span class="ui">応答設定</span> に戻り、<strong>Webhook</strong> を <strong>オン</strong>にする</li>
 </ol>
+<div class="important"><strong>「検証」ボタンは 302 エラーになります。これは正常です。</strong> GAS のウェブアプリは <code>/exec</code> へのリクエストを必ず <code>script.googleusercontent.com</code> へ転送する作りで、検証ボタンはその転送を追いません。実際の配信は動きます。<br>
+本当に動いているかは、手順 8 で Bot に一言送って返事が来るかで確かめてください。<br>
+転送先が <code>accounts.google.com</code> の場合だけは本当の失敗です。手順 4 の「アクセスできるユーザー」が「全員」になっていません。</div>
 </section>
 
 <section id="s6">
@@ -179,10 +197,10 @@ var CHANNEL_ACCESS_TOKEN = '（<span class="keep">チャネルアクセストー
 <h2>うまくいかないとき</h2>
 <div class="tablewrap"><table>
 <tr><th>症状</th><th>見るところ</th></tr>
-<tr><td>Webhook の「検証」が失敗する</td><td>手順 4 の「アクセスできるユーザー」が「全員」か。デプロイし直したか</td></tr>
+<tr><td>Webhook の「検証」が 302 で失敗する</td><td>302 なら正常。手順 5 を参照。転送先が <code>accounts.google.com</code> のときだけ本当の失敗で、手順 4 の「アクセスできるユーザー」が「全員」になっていない</td></tr>
 <tr><td>ボタンを押しても返事がない</td><td>GAS エディタ左「実行数」でエラーを見る。トークンが正しいか</td></tr>
 <tr><td>「始めますか」が来ない</td><td>トリガーが <code>daily</code> で毎日になっているか。<code>設定</code> の管理者ID が正しいか</td></tr>
-<tr><td>グループID が入らない</td><td>Bot をグループから外して、もう一度招待する</td></tr>
+<tr><td>Bot がグループに入れない／グループID が入らない</td><td>手順 1 の「グループトーク・複数人トークへの参加」が<strong>有効</strong>か。有効にしてから、Bot を外してもう一度招待する</td></tr>
 <tr><td>管理者ID がわからない</td><td>LINE Developers → チャネル基本設定 → 一番下「あなたのユーザーID」</td></tr>
 </table></div>
 </section>

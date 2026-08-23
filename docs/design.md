@@ -502,8 +502,11 @@ ID: `1VMJ8pT4M0pJFaTXZ4bOWr2BrpqJhlOQV9-S1b5BXtf0`
 | `src/10_webhook.gs` | `doPost`。イベントの入口 |
 | `src/11_daily.gs` | `daily()`。毎日 9 時台のトリガー |
 | `src/appsscript.json` | マニフェスト |
+| `dist/コード.gs` | 上の 12 枚を 1 枚にまとめたもの。GAS に貼るのはこれ。手で直さない |
+| `tools/bundle.js` | `dist/コード.gs` を作り直す。`--check` で古くなっていないか見る |
 | `test/harness.js` | .gs を Node から読み込む土台 |
 | `test/fakegas.js` | シートと LINE の偽物。送信失敗と順番待ち失敗を差し込める |
 | `test/logic.test.js` | 当番の日と割り当てを、総当たりと動的計画法の 2 通りで検算する |
 | `test/e2e.test.js` | 導入から公開までを通しで動かす |
+| `test/bundle.test.js` | `dist/コード.gs` が `src/` と一致しているか |
 | `test/mutation.sh` | コードをわざと壊してテストが落ちるかを見る |

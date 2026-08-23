@@ -107,9 +107,9 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:24px}
 <ol>
 <li><a href="https://script.google.com/">https://script.google.com/</a> で「新しいプロジェクト」</li>
 <li>プロジェクト名を付ける（例：当番Bot）</li>
-<li>このリポジトリの <code>src/</code> にあるファイルをすべて貼り付ける
-  <ul><li>ファイル名はリポジトリと同じにする</li><li><code>appsscript.json</code> は <span class="ui">プロジェクトの設定</span> → 「appsscript.json をエディタで表示」をオンにして貼る</li></ul></li>
-<li><code>src/00_config.gs</code> の先頭にある 2 つの値を書き換える
+<li>既定の <code>コード.gs</code> の中身を消して、このリポジトリの <code>dist/コード.gs</code> を<strong>まるごと貼り付ける</strong>
+  <ul><li>GAS のエディタにはフォルダを置けないので、12 ファイルを 1 枚にまとめてあります。貼るのは 1 回だけ</li><li><code>appsscript.json</code> は <span class="ui">プロジェクトの設定</span> → 「appsscript.json をエディタで表示」をオンにしてから、リポジトリの <code>src/appsscript.json</code> の中身を貼る</li></ul></li>
+<li>貼ったコードの先頭にある 2 つの値を書き換える
 <pre>var SPREADSHEET_ID = '（<span class="keep">スプレッドシート ID</span>）';
 var CHANNEL_ACCESS_TOKEN = '（<span class="keep">チャネルアクセストークン</span>）';</pre></li>
 <li>エディタ上部の関数選択で <code>setup</code> を選び <span class="ui">実行</span>

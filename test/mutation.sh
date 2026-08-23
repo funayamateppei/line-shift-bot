@@ -5,10 +5,39 @@
 set -u
 cd "$(dirname "$0")/.."
 
+# src/ そのものは書き換えない。1 件ごとに使い捨てのコピーを作り、
+# テストには GS_SRC でそちらを見せる。作業中のコードに触れないので、
+# 途中で止めても壊れたまま残らないし、並列で回せる。
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT INT TERM
+
+# 同時に走らせる数。CPU 数に合わせる
+JOBS="$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 4)"
+
+# 並列なので終わる順はばらばら。結果を番号付きで書き出し、最後に並べ直す
+OUT="$WORK/out"
+mkdir -p "$OUT"
+N=0
+
+section() {
+  N=$((N + 1))
+  printf -- '--- %s\n' "$1" > "$OUT/$(printf '%04d' "$N")"
+}
+
 run() {
-  local f="src/$1" from="$2" to="$3" label="$4"
-  cp "$f" /tmp/mut_backup.gs
-  python3 - "$f" "$from" "$to" <<'PY'
+  N=$((N + 1))
+  one "$N" "$@" &
+  # bash 3.2 には wait -n がないので、空きが出るまで見に行く
+  while [ "$(jobs -rp | wc -l)" -ge "$JOBS" ]; do sleep 0.05; done
+}
+
+one() {
+  local n="$1" name="$2" from="$3" to="$4" label="$5"
+  local dir="$WORK/src$n"
+  local out="$OUT/$(printf '%04d' "$n")"
+  cp -R src "$dir"
+
+  python3 - "$dir/$name" "$from" "$to" <<'PY'
 import sys
 path, before, after = sys.argv[1], sys.argv[2], sys.argv[3]
 s = open(path).read()
@@ -17,50 +46,63 @@ if before not in s:
 open(path, 'w').write(s.replace(before, after, 1))
 PY
   if [ $? -eq 3 ]; then
-    echo "SKIP:   ${label} … 対象が見つからない"
-    cp /tmp/mut_backup.gs "$f"
+    printf 'SKIP:   %s … 対象が見つからない\n' "$label" > "$out"
+    rm -rf "$dir"
     return
   fi
-  if node test/e2e.test.js >/dev/null 2>&1 && node test/logic.test.js >/dev/null 2>&1; then
-    echo "見逃し: $label"
+
+  if GS_SRC="$dir" node test/e2e.test.js >/dev/null 2>&1 \
+    && GS_SRC="$dir" node test/logic.test.js >/dev/null 2>&1; then
+    printf '見逃し: %s\n' "$label" > "$out"
   else
-    echo "検知:   $label"
+    printf '検知:   %s\n' "$label" > "$out"
   fi
-  cp /tmp/mut_backup.gs "$f"
+  rm -rf "$dir"
 }
 
-echo '--- 割り当て'
+report() {
+  wait
+  cat "$OUT"/* 2>/dev/null
+  local hit miss skip
+  hit=$(grep -c '^検知' "$OUT"/* 2>/dev/null | awk -F: '{s+=$NF} END {print s+0}')
+  miss=$(grep -c '^見逃し' "$OUT"/* 2>/dev/null | awk -F: '{s+=$NF} END {print s+0}')
+  skip=$(grep -c '^SKIP' "$OUT"/* 2>/dev/null | awk -F: '{s+=$NF} END {print s+0}')
+  printf '\n検知 %s ／ 見逃し %s ／ SKIP %s\n' "$hit" "$miss" "$skip"
+  [ "$miss" -eq 0 ] && [ "$skip" -eq 0 ]
+}
+
+section '割り当て'
 run 05_assign.gs 'return ctx.seat[seatKey_(day, u)] === undefined;' 'return true;' '同じ日に二重で入れない決まりを外す'
 run 05_assign.gs '      var days = availability[u] || [];
       return days.indexOf(s.day) >= 0;' '      return true;' '出られない日を除く決まりを外す'
 run 05_assign.gs 'if (ctx.seat[seatKey_(day, v)] !== undefined) continue;' '' '玉突きのときだけ同じ日に二重で入れる'
 run 05_assign.gs '  balance_(ctx);' '' '担当回数を均さない'
 
-echo '--- 当番の日'
+section '当番の日'
 run 04_plan.gs '  shuffle_(gaps, random);' '' '広い間隔を前に固める'
 run 04_plan.gs 'var offset = q > 1 ? Math.floor(random() * q) : 0;' 'var offset = 0;' '開始位置を 1 日に固定する'
 
-echo '--- 進行'
+section '進行'
 run 09_flow.gs '  if (notAdded_().length) return false;' '' '未追加の人がいても集計する'
 run 09_flow.gs 'if (!selected.length && !confirmedZero)' 'if (false)' '0 日で確定したときに聞き返さない'
 run 09_flow.gs 'st.ym !== ym || ' '' '古いカードの回答を受け付ける'
 run 09_flow.gs '  if (!s.groupId) return;' '  if (false) return;' 'グループIDが空でも送ろうとする'
 run 09_flow.gs 'if (!st.days.length) { reply_(replyToken, msgNeedOneDay_()); return; }' '' '0 日のまま日程を確定できる'
 
-echo '--- 受け口'
+section '受け口'
 run 10_webhook.gs '  if (!isAdmin) return;' '' '管理者以外にも管理者の操作をさせる'
 run 10_webhook.gs "    case 'publish': return onPublish_(ev.replyToken);" '' 'グループに送るボタンを効かなくする'
 run 10_webhook.gs "    case 'open':    return onOpenSheet_(ev.replyToken);" '' '表を開くボタンを効かなくする'
 run 11_daily.gs '  if (day === s.dueDay) sendDue_(now, s);' '' '締切日の連絡をしない'
 run 11_daily.gs '  if (day === s.noticeDay) sendNotice_(now, s);' '' 'お知らせを送らない'
 
-echo '--- 保存'
+section '保存'
 run 03_store.gs '    out[id] = parseDays_(values[i][4]);' '    if (!out[id]) out[id] = parseDays_(values[i][4]);' '回答を最新でなく最初の行で見る'
 run 07_ui.gs "    if (part === PART.二部) {
       return head + '　午前：' + person_(r.am) + '　午後：' + person_(r.pm);
     }" '' '当番表から午前・午後の表示を消す'
 
-echo '--- レビューで直したところ'
+section 'レビューで直したところ'
 run 09_flow.gs '  clearAnswers_(st.ym);' '' '中止しても前回の回答を消さない'
 run 09_flow.gs '  if (!push_(s.groupId, msgPublish_(st.ym, shift.part || st.part, shift.rows))) {
     reply_(replyToken, msgPublishFailed_());
@@ -73,9 +115,11 @@ run 09_flow.gs '  missing.forEach(function (p) { rosterUpsert_(p.userId, { inGro
 run 09_flow.gs "    appendAnswer_(st.ym, p.userId, p.name || '', []);" '' '未回答の人を都合がつく日なしにしない'
 run 03_store.gs "  var r = answerRow_(sh, ym, userId);" "  var r = 0;" '答え直しを上書きせず行を増やす'
 run 08_messages.gs "      uri_('当番表を開く', url)," "      postback_('当番表を開く', 'a=open')," '当番表の URL をボタンにしない'
-run 03_store.gs "    var list = r.cands.length ? r.cands : (allNames || []);" "    var list = r.cands;" '誰も来られない日に候補を出さない'
+run 03_store.gs '  var usable = (cands || []).filter(function (name) { return name !== other; });' '  var usable = (cands || []);' '同じ日の相手を除かずに候補を決める'
+run 03_store.gs '  var list = usable.length ? cands : (allNames || []);' '  var list = cands;' '選べる人がいない枠に名簿を出さない'
+run 03_store.gs "      pickRule_(r.cands, isTwoPart ? r.pm : '', allNames)," "      pickRule_(r.cands, '', allNames)," '午前を決めるときに午後を見ない'
 
-echo '--- 実機で気づいたところ'
+section '実機で気づいたところ'
 run 03_store.gs "  sh.getRange(start, 1, values.length, 1).setNumberFormat('@');" '' '当番表の年月を文字として扱わない'
 run 03_store.gs '    if (ymLabelOfCell_(values[i][0]) !== label) continue;' "    if (String(values[i][0] || '').trim() !== label) continue;" '日付に化けた年月の行を読めない'
 run 03_store.gs '  var hit = col.map(function (r) { return ymLabelOfCell_(r[0]) === label; });' "  var hit = col.map(function (r) { return String(r[0] || '').trim() === label; });" '作り直しで古い月のブロックを消せない'
@@ -115,7 +159,7 @@ run 06_line.gs '  var res;
 run 07_ui.gs '    if (!r.am && !r.pm) { labels.push(head); return; }' '' '両方空の日を 2 回書く'
 run 03_store.gs '    if (byId[id] === undefined) order.push(id);' '    order.push(id);' '名簿の重複行をまとめない'
 
-echo '--- 2 回目のレビューで直したところ'
+section '2 回目のレビューで直したところ'
 run 07_ui.gs '  var body = (lines || []).filter(function (line) { return line; });
   if (body.length) {' '  var body = (lines || []).filter(function (line) { return line; });
   if (true) {' '中身の空の箱を送ってしまう形に戻す'
@@ -132,7 +176,7 @@ run 08_messages.gs "  return people.map(function (p) {
 run 08_messages.gs "  lines.push('この先ずっと外したいときは、名簿シートでその人の行を削除してください。');" '' 'ずっと外す方法を案内しない'
 run 10_webhook.gs '    if (name) names.push(name);   // 名前が取れなかった人は並べない' '    names.push(name);' '名前が取れない人も並べる'
 
-echo '--- 3 回目のレビューで直したところ'
+section '3 回目のレビューで直したところ'
 run 06_line.gs '  return res.code >= 200 && res.code < 300;' '  return res.code < 300;' 'つながらないのを成功と数える'
 run 10_webhook.gs "    if (ev.type === 'postback' && ev.replyToken) {" '    if (ev.replyToken) {' '順番待ちの返事を全部のイベントに返す'
 run 03_store.gs '  var need = start + values.length - 1;
@@ -148,7 +192,7 @@ run 09_flow.gs '  var count = members_().filter(function (p) {
 run 09_flow.gs "  var target = (st.stage === STAGE.回答受付中 || st.stage === STAGE.確認待ち) ? st.ym : '';" '  var target = st.ym;' '公開した月の記録も中止で消す'
 run 09_flow.gs '  if (!s.groupId) { reply_(replyToken, msgNoGroup_()); return; }' '' 'グループ未登録と送信失敗を同じ扱いにする'
 
-echo '--- 4 回目のレビューで直したところ'
+section '4 回目のレビューで直したところ'
 run 09_flow.gs "  var sameAsAsked = data.c === '1'
     && data.ym === st.ym
     && String(waiting.length) === String(data.n)
@@ -167,7 +211,7 @@ run 10_webhook.gs '    if (ROSTER_EVENTS[ev.type]) {
       return;
     }' '' '順番待ちが切れたら名簿のイベントも捨てる'
 
-echo '--- 5 回目のレビューで直したところ'
+section '5 回目のレビューで直したところ'
 run 03_store.gs '  var byId = Object.create(null);' '  var byId = {};' '名簿の入れ物を素の {} に戻す'
 run 03_store.gs '  var out = Object.create(null);' '  var out = {};' '回答の入れ物を素の {} に戻す'
 run 03_store.gs '    if (isNaN(Number(day))) continue;' '' '数にならない「日」も読む'
@@ -179,7 +223,7 @@ run 09_flow.gs '  var nameById = displayNames_(people);' "  var nameById = {}; p
 run 09_flow.gs '  if (!st.days.length) return;' '' '当番の日が空でも集計する'
 run 01_setup.gs "  sh.getRange(2, 1, 1, 4).setNumberFormat('@');" '' '状態シートを文字として扱わない'
 
-echo '--- 均等化'
+section '均等化'
 run 05_assign.gs '    if (ctx.load[from] - min < 2) break;   // ここから先はどう渡しても縮まらない
     if (searchChain_(ctx, from)) return true;' '    if (ctx.load[from] !== ctx.load[sorted[0]]) break;
     if (searchChain_(ctx, from)) return true;' '出し手を「担当が最も多い人」だけに戻す'
@@ -187,3 +231,5 @@ run 05_assign.gs 'var days = [];
   workDays.forEach(function (d) { if (days.indexOf(d) < 0) days.push(d); });
   days.sort' 'var days = workDays.slice();
   days.sort' '重なった日をまとめない'
+
+report

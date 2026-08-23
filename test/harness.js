@@ -6,7 +6,8 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-const SRC = path.join(__dirname, '..', 'src');
+// ふだんは src/。ミューテーションのときだけ、使い捨てのコピーを指す
+const SRC = process.env.GS_SRC || path.join(__dirname, '..', 'src');
 
 function fakeUtilities() {
   const pad = (n, w) => String(n).padStart(w, '0');

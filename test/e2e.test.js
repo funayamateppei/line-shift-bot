@@ -7,7 +7,8 @@ const path = require('path');
 const vm = require('vm');
 const { makeGas } = require('./fakegas');
 
-const SRC = path.join(__dirname, '..', 'src');
+// ふだんは src/。ミューテーションのときだけ、使い捨てのコピーを指す
+const SRC = process.env.GS_SRC || path.join(__dirname, '..', 'src');
 const FILES = fs.readdirSync(SRC).filter(f => f.endsWith('.gs')).sort();
 
 let failures = 0;
@@ -1607,6 +1608,60 @@ section('状態シートのセルが化けないか');
   check('日付に化けた対象年月でも拾える',
     ctx.answersFor_('2026-09')['Ualice'].join(',') === '2',
     'Ualice=' + JSON.stringify(ctx.answersFor_('2026-09')['Ualice']));
+}
+
+section('担当セルの候補');
+{
+  const env = newEnv(new RealDate(2026, 7, 15, 9, 0));
+  const { ctx } = env;
+  const all = ['あかり', 'いつき', 'うみ'];
+  const rows = [
+    // 2部制。その日に来られるのが 1 人だけ → 午前に入り、午後は選べる人がいない
+    { day: 2, weekday: '水', am: 'あかり', pm: '', cands: ['あかり'] },
+    // 2 人来られる。どちらの枠にも別の人が残る
+    { day: 4, weekday: '金', am: 'あかり', pm: 'いつき', cands: ['あかり', 'いつき'] },
+    // 誰も来られない
+    { day: 7, weekday: '月', am: '', pm: '', cands: [] },
+    // 午前が空いていて、その日に来られる 1 人が午後に入っている。
+    // 午前と午後で見る相手が入れ替わるだけで、扱いは同じ
+    { day: 9, weekday: '水', am: '', pm: 'あかり', cands: ['あかり'] }
+  ];
+  ctx.writeShift_('2026-09', '2部制', rows, all);
+  const sh = env.gas.book.getSheetByName('当番_2026年度');
+  const listAt = (row, col) => {
+    const v = sh.getRange(row, col).getDataValidation();
+    return v && v.list.filter(x => x !== '');
+  };
+
+  check('1 人しか来られない日の午前は、その人だけ',
+    JSON.stringify(listAt(3, 4)) === JSON.stringify(['あかり']), JSON.stringify(listAt(3, 4)));
+  check('その日の午後は名簿の全員',
+    JSON.stringify(listAt(3, 5)) === JSON.stringify(all), JSON.stringify(listAt(3, 5)));
+
+  check('2 人来られる日は来られる人だけ（午前）',
+    JSON.stringify(listAt(4, 4)) === JSON.stringify(['あかり', 'いつき']), JSON.stringify(listAt(4, 4)));
+  check('2 人来られる日は来られる人だけ（午後）',
+    JSON.stringify(listAt(4, 5)) === JSON.stringify(['あかり', 'いつき']), JSON.stringify(listAt(4, 5)));
+
+  check('誰も来られない日は両方とも名簿の全員',
+    JSON.stringify(listAt(5, 4)) === JSON.stringify(all)
+    && JSON.stringify(listAt(5, 5)) === JSON.stringify(all),
+    JSON.stringify([listAt(5, 4), listAt(5, 5)]));
+
+  check('午後だけ埋まっている日の午前は名簿の全員',
+    JSON.stringify(listAt(6, 4)) === JSON.stringify(all), JSON.stringify(listAt(6, 4)));
+  check('その日の午後は来られる人だけ',
+    JSON.stringify(listAt(6, 5)) === JSON.stringify(['あかり']), JSON.stringify(listAt(6, 5)));
+
+  // 1部制では午後にプルダウンを置かない（「—」が入る欄）
+  ctx.writeShift_('2026-10', '1部制',
+    [{ day: 1, weekday: '木', am: 'あかり', pm: '—', cands: ['あかり'] }], all);
+  const one = ctx.readShift_('2026-10');
+  const orow = 3 + rows.length + 1;   // 9月のブロックのあと
+  check('1部制の午後には候補を置かない', listAt(orow, 5) === null, JSON.stringify(listAt(orow, 5)));
+  check('1部制の午前は来られる人だけ',
+    JSON.stringify(listAt(orow, 4)) === JSON.stringify(['あかり']), JSON.stringify(listAt(orow, 4)));
+  check('1部制も読み出せる', one.rows.length === 1);
 }
 
 section('当番表の年月が日付に化けないか');

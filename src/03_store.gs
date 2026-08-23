@@ -273,27 +273,43 @@ function writeShift_(ym, part, rows, allNames) {
   sh.getRange(start, 1, values.length, 1).setNumberFormat('@');
   sh.getRange(start, 1, values.length, 6).setValues(values);
 
-  // 担当セルのプルダウン。その日に来られる人だけを候補に入れる。
+  // 担当セルのプルダウン。中身の決め方は pickRule_ を見る。
   // 手を挙げてくれた人を後から入れられるよう、候補以外も入力できるようにしておく。
+  var isTwoPart = part === PART.二部;
   var rules = [];
   rules.push([null, null]);
   rows.forEach(function (r) {
-    // 来られる人がいない日は、協力してくれた人をあとから入れることになる。
-    // 名簿の全員を候補に出して、手打ちしなくて済むようにする。
-    // どちらも空のときだけプルダウンを置かない（空だけの候補リストは作れない）
-    var list = r.cands.length ? r.cands : (allNames || []);
-    if (!list.length) { rules.push([null, null]); return; }
-
-    var rule = SpreadsheetApp.newDataValidation()
-      .requireValueInList(list.concat(['']), true)
-      .setAllowInvalid(true)
-      .build();
-    rules.push([rule, part === PART.二部 ? rule : null]);
+    rules.push([
+      pickRule_(r.cands, isTwoPart ? r.pm : '', allNames),
+      isTwoPart ? pickRule_(r.cands, r.am, allNames) : null
+    ]);
   });
   sh.getRange(start, 4, rules.length, 2).setDataValidations(rules);
 
   SpreadsheetApp.flush();
   return sh;
+}
+
+/**
+ * 担当セルのプルダウン。候補はその日に来られる人。
+ *
+ * ただし、同じ日のもう一方の枠に入っている人を除くと候補が 0 になるときは、
+ * 名簿の全員に切り替える。2部制でその日に来られるのが 1 人だけの場合が
+ * これで、その人は午前に入るので、午後は選べる人が 1 人もいなくなる。
+ * そこは協力を募って埋めることになるので、名簿から選べるようにする。
+ *
+ * other は同じ日のもう一方の枠にいる人（1部制なら空）。
+ * どちらの場合も候補以外を直接入力できる（allowInvalid）。
+ * 出せる名前が 1 つもないときは置かない（空だけの候補リストは作れない）。
+ */
+function pickRule_(cands, other, allNames) {
+  var usable = (cands || []).filter(function (name) { return name !== other; });
+  var list = usable.length ? cands : (allNames || []);
+  if (!list.length) return null;
+  return SpreadsheetApp.newDataValidation()
+    .requireValueInList(list.concat(['']), true)
+    .setAllowInvalid(true)
+    .build();
 }
 
 /** その年月の行を消す */

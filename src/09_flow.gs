@@ -373,7 +373,8 @@ function aggregate_(st) {
     };
   });
 
-  writeShift_(st.ym, st.part, rows);
+  var allNames = ids.map(function (id) { return nameById[id]; });
+  writeShift_(st.ym, st.part, rows, allNames);
 
   // 段階を先に進める。送信で失敗しても集計をやり直さないため。
   // やり直すと乱数で割り当てが別物に変わり、管理者に違う当番表が二重に届く。

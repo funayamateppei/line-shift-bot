@@ -996,12 +996,26 @@ section('その日に誰も来られない日のプルダウン');
   const shift = ctx.readShift_('2026-09');
   check('その日は空欄', shift.rows.find(r => r.day === days[1]).am === '');
 
-  // 誰も来られない日にはプルダウンを置かない。置ける人がいる日には置く
+  // 来られる人がいない日は、協力してくれた人をあとから入れることになる。
+  // 名簿の全員を候補に出して、手打ちしなくて済むようにする
   const sh = env.gas.book.getSheetByName('当番_2026年度');
   const rowOf = d => 2 + 1 + shift.rows.findIndex(r => r.day === d);   // 見出し行のぶん +1
-  check('誰も来られない日は候補なし', sh.getRange(rowOf(days[1]), 4).getDataValidation() === null);
+  const none = sh.getRange(rowOf(days[1]), 4).getDataValidation();
+  check('誰も来られない日でも候補は出る', none && none.list && none.list.length > 1,
+    JSON.stringify(none));
+  check('その候補は名簿の全員',
+    none && PEOPLE.every(p => none.list.indexOf(p.name) >= 0),
+    JSON.stringify(none && none.list));
   const ok = sh.getRange(rowOf(days[2]), 4).getDataValidation();
   check('来られる人がいる日は候補あり', ok && ok.list && ok.list.length > 1, JSON.stringify(ok));
+  // 候補は「来られる人」欄と一致していること
+  const cands = sh.getRange(rowOf(days[2]), 6).getValues()[0][0];
+  check('候補は来られる人の欄と同じ顔ぶれ',
+    ok && ok.list.filter(v => v !== '').join(', ') === cands,
+    JSON.stringify(ok && ok.list) + ' / ' + cands);
+  check('誰も来られない日の欄は空のまま',
+    sh.getRange(rowOf(days[1]), 6).getValues()[0][0] === '',
+    JSON.stringify(sh.getRange(rowOf(days[1]), 6).getValues()[0][0]));
 }
 
 section('進めると誰もいなくなるとき');

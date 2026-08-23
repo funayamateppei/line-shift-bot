@@ -210,9 +210,11 @@ function msgOpenSheet_(url) {
   return withAdminMenu_([
     promptFlex_('当番表を開いて担当を直してください', [
       '当番表を開いて担当を直してください。',
-      '直したあと〔グループに送る〕を押すと、シートの内容でそのまま送ります。',
-      url
-    ], [postback_('グループに送る', 'a=publish')])
+      '直したあと〔グループに送る〕を押すと、シートの内容でそのまま送ります。'
+    ], [
+      uri_('当番表を開く', url),
+      postback_('グループに送る', 'a=publish')
+    ])
   ]);
 }
 

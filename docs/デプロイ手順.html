@@ -176,21 +176,28 @@ var CHANNEL_ACCESS_TOKEN = '（<span class="keep">チャネルアクセストー
 <h2><span class="num">7</span>グループに入れる</h2>
 <p class="lead">Bot を招待して、全員に友だち追加してもらう</p>
 <ol>
-<li>LINE で Bot を友だち追加（QR コードは Messaging API 設定タブにある）</li>
-<li>当番を決めるグループに Bot を招待 → Bot が「友だち追加してください」と送る。<code>設定</code> の <strong>グループID</strong> が自動で入る</li>
-<li><strong>全員に友だち追加してもらう</strong></li>
+<li>LINE で Bot を友だち追加（QR コードは <span class="ui">Messaging API 設定</span> タブにある）
+  <div class="important"><strong>公式アカウントを作った本人は、はじめから友だちになっています。</strong> その追加は Webhook を用意する前に済んでいるので、Bot はイベントを受け取れず、<code>名簿</code> に載りません。<br>
+  <strong>直し方：一度ブロックして、すぐブロック解除する。</strong> 友だち追加のイベントが飛び直し、名簿に入ります。<code>名簿</code> に自分の行ができたか確かめてください。</div></li>
+<li>当番を決めるグループに Bot を招待 → Bot が「友だち追加してください」と送る。<code>設定</code> の <strong>グループID</strong> が自動で入る
+  <ul><li>入れない場合は手順 1 の「グループトーク・複数人トークへの参加」が有効か確認</li></ul></li>
+<li><strong>全員に友だち追加してもらう</strong>（管理者を含む。管理者もメンバーの一人です）</li>
 </ol>
-<div class="important"><strong>Bot はグループに入る前からいた人を見つけられません。</strong> 全員の友だち追加が済むまで、その人には当番の相談が届きません。詳しくは運用マニュアル 1-1。</div>
+<div class="important"><strong>Bot はグループに入る前からいた人を見つけられません。</strong> 無料プランではグループのメンバー一覧を取れないためです（一覧の API は <code>403</code> を返します）。全員の友だち追加が済むまで、その人には当番の相談が届きません。詳しくは運用マニュアル 1-1。</div>
 </section>
 
 <section id="s8">
 <h2><span class="num">8</span>動作確認</h2>
+<p class="lead">ここまでの設定が本当に通っているかを見る</p>
 <ol>
-<li>管理者の 1 対 1 トークで Bot に何か一言送る → 「いま進めているものはありません。」と返れば OK</li>
+<li>管理者の 1 対 1 トークで Bot に何か一言送る → 「いま進めているものはありません。」と返れば <strong>Webhook が通っています</strong></li>
 <li>返事の下に <span class="ui">開始</span> <span class="ui">状況</span> <span class="ui">中止</span> が並ぶ。これが管理者のメニュー</li>
 <li><span class="ui">開始</span> → 対象月 → 部制 → 日数 → <span class="ui">この日程でOK</span> まで試し、メンバーにカレンダーが届くことを確認</li>
+<li>スプレッドシートの <code>名簿</code> に人が並び、<code>状態</code> が進んでいることを確認</li>
 <li>確認が終わったら <span class="ui">中止</span></li>
 </ol>
+<div class="note"><strong>反応まで 2〜4 秒かかります。</strong> Google 側の起動時間です。返事が来ないうちに何度押しても壊れません。進行中に <span class="ui">開始</span> を押すと、いま答えるべき質問をもう一度返すだけです。</div>
+<div class="note"><strong>ボタンを押しても無料枠は減りません。</strong> Bot からの返事（reply）は 0 通です。減るのは個別カレンダーの配信とグループへの公開だけで、どちらも人数ぶん数えます。</div>
 </section>
 
 <section>

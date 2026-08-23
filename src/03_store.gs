@@ -251,9 +251,10 @@ function pending_(ym) {
  * 同じ年月のブロックがあれば作り直す。
  *
  * rows: [{day, weekday, am, pm, cands:[表示名]}]
+ * allNames: 名簿にいる全員の表示名。来られる人がいない日の候補に使う。
  * 見出し行（日が空、午前に部制）＋日ごとの行を並べる。
  */
-function writeShift_(ym, part, rows) {
+function writeShift_(ym, part, rows, allNames) {
   var sh = ensureYearSheet_(ym);
   removeMonthBlock_(sh, ym);
 
@@ -274,12 +275,14 @@ function writeShift_(ym, part, rows) {
   var rules = [];
   rules.push([null, null]);
   rows.forEach(function (r) {
-    // その日に来られる人が 1 人もいないときはプルダウンを置かない。
-    // 空だけの候補リストは作れない
-    if (!r.cands.length) { rules.push([null, null]); return; }
+    // 来られる人がいない日は、協力してくれた人をあとから入れることになる。
+    // 名簿の全員を候補に出して、手打ちしなくて済むようにする。
+    // どちらも空のときだけプルダウンを置かない（空だけの候補リストは作れない）
+    var list = r.cands.length ? r.cands : (allNames || []);
+    if (!list.length) { rules.push([null, null]); return; }
 
     var rule = SpreadsheetApp.newDataValidation()
-      .requireValueInList(r.cands.concat(['']), true)
+      .requireValueInList(list.concat(['']), true)
       .setAllowInvalid(true)
       .build();
     rules.push([rule, part === PART.二部 ? rule : null]);

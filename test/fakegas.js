@@ -343,11 +343,16 @@ function checkComponent(v, bad) {
   }
   if (v.type === 'text') {
     if (!v.text) bad.push('本文の空の text 部品');
+    // Flex の文字は URL を書いてもリンクにならない。押せない URL は置かない
+    else if (/https?:\/\//.test(v.text)) bad.push('リンクにならない URL を Flex の文字に置いている: ' + v.text);
     return;
   }
   if (v.type === 'button') {
     if (!v.action || !v.action.type) bad.push('action のない button');
     else if (v.action.type === 'postback' && !v.action.data) bad.push('data のない postback');
+    else if (v.action.type === 'uri' && !/^https:\/\//.test(v.action.uri || '')) {
+      bad.push('uri が https で始まらない button: ' + v.action.uri);
+    }
     else if (v.action.data && v.action.data.length > 300) bad.push('postback の data が 300 文字を超える');
     if (v.action && v.action.label !== undefined && !v.action.label) bad.push('label が空の button');
     return;

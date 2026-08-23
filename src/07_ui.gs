@@ -16,6 +16,15 @@ function postback_(label, data) {
   return { label: label, data: data };
 }
 
+/**
+ * URL を開くボタン。
+ * Flex の文字は URL を書いてもリンクにならない（自動でリンクになるのは
+ * 普通のテキストメッセージだけ）。開かせたいときはボタンにする。
+ */
+function uri_(label, url) {
+  return { label: label, uri: url };
+}
+
 /** 管理者にはいつでも押せるボタンを添える */
 function withAdminMenu_(messages) {
   if (!messages.length) return messages;
@@ -56,6 +65,14 @@ function promptFlex_(altText, lines, actions) {
       layout: 'vertical',
       spacing: 'sm',
       contents: actions.map(function (a) {
+        if (a.uri) {
+          return {
+            type: 'button',
+            style: 'link',
+            height: 'sm',
+            action: { type: 'uri', label: a.label, uri: a.uri }
+          };
+        }
         return {
           type: 'button',
           style: 'primary',

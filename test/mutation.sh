@@ -72,6 +72,8 @@ run 09_flow.gs '  if (!push_(s.groupId, msgPublish_(st.ym, shift.part || st.part
 run 09_flow.gs '  missing.forEach(function (p) { rosterUpsert_(p.userId, { inGroup: false }); });' '' '未追加の人を外さない'
 run 09_flow.gs "    appendAnswer_(st.ym, p.userId, p.name || '', []);" '' '未回答の人を都合がつく日なしにしない'
 run 03_store.gs "  var r = answerRow_(sh, ym, userId);" "  var r = 0;" '答え直しを上書きせず行を増やす'
+run 08_messages.gs "      uri_('当番表を開く', url)," "      postback_('当番表を開く', 'a=open')," '当番表の URL をボタンにしない'
+run 03_store.gs "    var list = r.cands.length ? r.cands : (allNames || []);" "    var list = r.cands;" '誰も来られない日に候補を出さない'
 run 03_store.gs "    if (ymOfCell_(values[i][1]) !== ym) continue;" "    if (String(values[i][1] || '').trim() !== ym) continue;" '日付に化けた対象年月を読めない'
 run 09_flow.gs '  if (!sameAsAsked) {
     reply_(replyToken, msgConfirmSkip_(st.ym, waiting, missing));
@@ -150,7 +152,6 @@ run 10_webhook.gs '    if (ROSTER_EVENTS[ev.type]) {
       }
       return;
     }' '' '順番待ちが切れたら名簿のイベントも捨てる'
-run 03_store.gs '    if (!r.cands.length) { rules.push([null, null]); return; }' '' '候補がいない日にも空だけのプルダウンを置く'
 
 echo '--- 5 回目のレビューで直したところ'
 run 03_store.gs '  var byId = Object.create(null);' '  var byId = {};' '名簿の入れ物を素の {} に戻す'

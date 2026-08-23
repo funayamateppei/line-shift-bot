@@ -1438,7 +1438,42 @@ section('公開した月の記録は中止で消さない');
   postback(env, 'a=cancel', 'Uadmin');
   check('公開済みで中止しても回答は残る',
     Object.keys(ctx.answersFor_('2026-09')).length === 3);
+  check('公開済みで中止しても当番表は残る',
+    ctx.readShift_('2026-09').rows.length === 2,
+    JSON.stringify(ctx.readShift_('2026-09').rows.length));
   check('進行中のものは消える', ctx.state_().stage === 'なし');
+}
+
+section('公開する前に中止したら当番表も消す');
+{
+  const env = newEnv(new RealDate(2026, 7, 15, 9, 0));
+  const { ctx } = env;
+  joinGroupWith(env, PEOPLE);
+  PEOPLE.forEach(p => follow(env, p.id));
+  startFor(env, '2026-09');
+  postback(env, 'a=part&v=1', 'Uadmin');
+  postback(env, 'a=num&v=2', 'Uadmin');
+  postback(env, 'a=aok', 'Uadmin');
+  const mask = ctx.daysToMask_(ctx.state_().days);
+  PEOPLE.forEach(p => postback(env, `a=mok&ym=2026-09&s=${mask}`, p.id));
+  check('集計まで進んでいる', ctx.state_().stage === '確認待ち');
+  check('当番表ができている', ctx.readShift_('2026-09').rows.length === 2);
+
+  // 公開していない表を残すと、公開済みのものと見分けがつかないまま居座る
+  postback(env, 'a=cancel', 'Uadmin');
+  check('当番表も消える', ctx.readShift_('2026-09').rows.length === 0,
+    JSON.stringify(ctx.readShift_('2026-09')));
+  check('回答も消える', Object.keys(ctx.answersFor_('2026-09')).length === 0);
+
+  // 消したあとに作り直せること（行を消してシートが縮んでいても書ける）
+  startFor(env, '2026-09');
+  postback(env, 'a=part&v=1', 'Uadmin');
+  postback(env, 'a=num&v=3', 'Uadmin');
+  postback(env, 'a=aok', 'Uadmin');
+  const mask2 = ctx.daysToMask_(ctx.state_().days);
+  PEOPLE.forEach(p => postback(env, `a=mok&ym=2026-09&s=${mask2}`, p.id));
+  check('やり直せる', ctx.readShift_('2026-09').rows.length === 3,
+    JSON.stringify(ctx.readShift_('2026-09').rows.length));
 }
 
 section('おかしなボタンを押されたとき');

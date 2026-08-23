@@ -323,6 +323,17 @@ function removeMonthBlock_(sh, ym) {
 }
 
 /**
+ * その年月の当番表を年度シートから消す。〔中止〕したときだけ呼ぶ。
+ * 年度シートがまだ無ければ何もしない。
+ */
+function clearShift_(ym) {
+  if (!ym) return;
+  var sh = book_().getSheetByName(yearSheetName_(ym));
+  if (!sh) return;
+  removeMonthBlock_(sh, ym);
+}
+
+/**
  * 年度シートから、その年月の当番表を読む（公開はシートの最新内容を送る）。
  * 返り値: {part, rows:[{day, weekday, am, pm}]}
  */

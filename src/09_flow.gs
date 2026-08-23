@@ -191,8 +191,12 @@ function statusWaitingMessages_(ym, prefix) {
 
 /**
  * 8.5 中止。
- * その月の回答も消す。消さないと、同じ月をやり直したときに前回の回答が
- * 「回答済み」として数えられ、誰か 1 人の確定で集計が走ってしまう。
+ * その月の回答と、作りかけの当番表も消す。
+ *
+ * 回答を残すと、同じ月をやり直したときに前回の回答が「回答済み」として
+ * 数えられ、誰か 1 人の確定で集計が走ってしまう。
+ * 当番表を残すと、公開していない表が公開済みのものと見分けがつかないまま
+ * 年度シートに居座る。中止したものは何も残さない。
  */
 function onCancel_(replyToken) {
   var st = state_();
@@ -201,7 +205,9 @@ function onCancel_(replyToken) {
 
   clearState_();
   reply_(replyToken, msgCancelled_());
-  clearAnswers_(target);   // 時間がかかるので状態と返事のあとに
+  // 時間がかかるので状態と返事のあとに
+  clearAnswers_(target);
+  clearShift_(target);
 }
 
 /**

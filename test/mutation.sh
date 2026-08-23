@@ -190,6 +190,7 @@ run 09_flow.gs '  var count = members_().filter(function (p) {
     return Object.prototype.hasOwnProperty.call(answered, p.userId);
   }).length;' '  var count = Object.keys(answered).length;' '抜けた人も回答済みに数える'
 run 09_flow.gs "  var target = (st.stage === STAGE.回答受付中 || st.stage === STAGE.確認待ち) ? st.ym : '';" '  var target = st.ym;' '公開した月の記録も中止で消す'
+run 09_flow.gs '  clearShift_(target);' '' '中止しても作りかけの当番表を残す'
 run 09_flow.gs '  if (!s.groupId) { reply_(replyToken, msgNoGroup_()); return; }' '' 'グループ未登録と送信失敗を同じ扱いにする'
 
 section '4 回目のレビューで直したところ'

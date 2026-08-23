@@ -202,20 +202,37 @@ function onCancel_(replyToken) {
 }
 
 /**
- * 8.2 未追加の人を名簿から外して進める。
- * ブロックされた人などが残ると「未追加ゼロ」にならず、集計が永久に走らない。
+ * 8.3 この人抜きで進める。
+ * ブロックされた人や、いつまでも答えない人が残ると集計が走らない。
  * そこから抜け出すための操作。
+ *
+ * 未回答の人 … その月だけ「都合がつく日なし」として記録する。名簿は触らない
+ *              ので、翌月はまた普通にカレンダーが届く
+ * 未追加の人 … 名簿から外す。友だち追加し直せばまた入る
  */
-function onSkipNotAdded_(replyToken) {
+function onSkipNotAdded_(replyToken, confirmed) {
   var st = state_();
   if (st.stage !== STAGE.回答受付中) { onStatus_(replyToken); return; }
 
-  var waiting = notAdded_();
-  if (!waiting.length) { onStatus_(replyToken); return; }
+  var waiting = pending_(st.ym);
+  var missing = notAdded_();
+  if (!waiting.length && !missing.length) { onStatus_(replyToken); return; }
 
-  waiting.forEach(function (p) { rosterUpsert_(p.userId, { inGroup: false }); });
-  reply_(replyToken, msgSkippedNotAdded_(waiting));
+  // 進めたあとに誰も残らないなら、当番表が作れないので押させない
+  var left = members_().length - waiting.length;
+  if (left < 1) { reply_(replyToken, msgSkipAll_()); return; }
 
+  if (!confirmed) {
+    reply_(replyToken, msgConfirmSkip_(st.ym, waiting, missing));
+    return;
+  }
+
+  waiting.forEach(function (p) {
+    appendAnswer_(st.ym, p.userId, p.name || nameOf_(p.userId), []);
+  });
+  missing.forEach(function (p) { rosterUpsert_(p.userId, { inGroup: false }); });
+
+  reply_(replyToken, msgSkipped_(st.ym, waiting, missing));
   maybeAggregate_();
 }
 

@@ -69,11 +69,19 @@ run 09_flow.gs '  if (!push_(s.groupId, msgPublish_(st.ym, shift.part || st.part
   if (false) {
     return;
   }' '送れなくても「送りました」と返す'
-run 09_flow.gs '  waiting.forEach(function (p) { rosterUpsert_(p.userId, { inGroup: false }); });' '' '未追加の人を外して進めるを効かなくする'
+run 09_flow.gs '  missing.forEach(function (p) { rosterUpsert_(p.userId, { inGroup: false }); });' '' '未追加の人を外さない'
+run 09_flow.gs '  waiting.forEach(function (p) {
+    appendAnswer_(st.ym, p.userId, p.name || nameOf_(p.userId), []);
+  });' '' '未回答の人を都合がつく日なしにしない'
+run 09_flow.gs '  if (!confirmed) {
+    reply_(replyToken, msgConfirmSkip_(st.ym, waiting, missing));
+    return;
+  }' '' '外す前に聞き返さない'
+run 09_flow.gs '  if (left < 1) { reply_(replyToken, msgSkipAll_()); return; }' '' '全員いなくなっても進める'
 run 09_flow.gs '  if (st.stage === STAGE.回答受付中) maybeAggregate_();' '' '状況で集計を見直さない'
 run 09_flow.gs "      reply_(replyToken, shiftMessages_(st.ym, '当番表を確認中です。'));" "      reply_(replyToken, withAdminMenu_([text_('当番表を確認中です。')]));" '状況で当番表そのものを返さない'
 run 10_webhook.gs "    case 'ym':      return onPickMonth_(ev.replyToken, data.v);" '' '対象月のボタンを効かなくする'
-run 10_webhook.gs "    case 'skip':    return onSkipNotAdded_(ev.replyToken);" '' '未追加の人を外すボタンを効かなくする'
+run 10_webhook.gs "    case 'skip':    return onSkipNotAdded_(ev.replyToken, data.c === '1');" '' 'この人抜きで進めるボタンを効かなくする'
 run 10_webhook.gs '  // この人が最後の未追加者だったなら、これでそろう
   maybeAggregate_();' '' '友だち追加でそろっても集計しない'
 run 06_line.gs '  return isOk_(res);' '  return true;' '送信の失敗を無視する'
@@ -98,9 +106,10 @@ run 09_flow.gs '    default:
       // 状態シートを手で書き換えられて知らない段階になっていたら、始めからやり直す
       clearState_();
       onStart_(replyToken);' '' '知らない段階のときに黙り込む'
-run 08_messages.gs "  var names = people.map(function (p) {
+run 08_messages.gs "  return people.map(function (p) {
     return (p.name || nameOf_(p.userId)) + 'さん';
-  }).join('、');" "  var names = nameList_(people) + 'さん';" '外した人の名前をまとめて「さん」にする'
+  }).join('、');" "  return nameList_(people) + 'さん';" '外した人の名前をまとめて「さん」にする'
+run 08_messages.gs "  lines.push('この先ずっと外したいときは、名簿シートでその人の行を削除してください。');" '' 'ずっと外す方法を案内しない'
 run 10_webhook.gs '    if (name) names.push(name);   // 名前が取れなかった人は並べない' '    names.push(name);' '名前が取れない人も並べる'
 
 echo '--- 3 回目のレビューで直したところ'

@@ -146,7 +146,7 @@ function onPostback_(ev) {
     case 'start':   return onStart_(ev.replyToken);
     case 'status':  return onStatus_(ev.replyToken);
     case 'cancel':  return onCancel_(ev.replyToken);
-    case 'skip':    return onSkipNotAdded_(ev.replyToken);
+    case 'skip':    return onSkipNotAdded_(ev.replyToken, data.c === '1');
     case 'ym':      return onPickMonth_(ev.replyToken, data.v);
     case 'part':    return onPart_(ev.replyToken, data.v);
     case 'num':     return onCount_(ev.replyToken, data.v);

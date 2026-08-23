@@ -115,7 +115,16 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:24px}
 次の文をコピーしてグループに送れます。</div>
 <div class="bubble copy">Aさん、Bさん、回答お願いします。Cさん、Bot の友だち追加をお願いします。</div>
 <p>2 つ目の吹き出しを長押し → コピー → グループに貼り付けて送ってください。25 日の朝にも、揃っていなければ同じものが届きます。</p>
-<div class="note">Bot をブロックしてしまった人などが「未追加」に残ると、いつまでも集計が始まりません。そのときは <span class="btn">未追加の人を外して進める</span> を押してください。その人を名簿から外して、残りの人で当番表を作ります。</div>
+<h3>2-2-1. いつまでも集計が始まらないとき</h3>
+<p>答えない人や、Bot をブロックしてしまった人が残っていると、全員そろわないので集計が始まりません。そのときは <span class="btn">状況</span> に出る <span class="btn">この人抜きで進める</span> を押してください。</p>
+<p>押すと、まず名前を見せて確認します。もう一度押すと進みます。</p>
+<div class="tablewrap"><table>
+<tr><th>その人の状態</th><th>どうなるか</th><th>元に戻すには</th></tr>
+<tr><td>答えていない（友だち追加済み）</td><td>その月だけ「都合がつく日なし」として当番から外す</td><td>何もしなくてよい。<strong>翌月はまた普通にカレンダーが届きます</strong></td></tr>
+<tr><td>友だち追加していない</td><td>名簿から外す</td><td>その人が友だち追加し直せば、また入ります</td></tr>
+</table></div>
+<div class="note">進めると当番を割り当てられる人がいなくなる場合は押せません。そのときは待つか <span class="btn">中止</span> してください。</div>
+<div class="important"><strong>この先ずっと外したい人</strong>（辞めた人など）は、スプレッドシートの <code>名簿</code> タブでその人の<strong>行ごと削除</strong>してください。ボタンでは翌月また戻ってきます。</div>
 
 <h3>2-3. 当番表を確認する</h3>
 <p>全員の回答が揃うと、Bot から当番表が届きます。</p>
@@ -153,7 +162,8 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:24px}
 <tr><th>状況</th><th>どうする</th></tr>
 <tr><td>途中でやめたい</td><td><span class="btn">中止</span> を押す。「中止しました。」と返ってきたら、また <span class="btn">開始</span> から始められる。<strong>その月に集まっていた回答も消えます</strong>（やり直したときに混ざらないように）</td></tr>
 <tr><td>何をすればいいかわからなくなった</td><td><span class="btn">開始</span> を押す。「すでに2026年9月分は開始されています。続きはこちらです。」と、いまやるべき画面が出る</td></tr>
-<tr><td>いつまでも集計が始まらない</td><td><span class="btn">状況</span> を押す。「未追加」に名前が残っていれば <span class="btn">未追加の人を外して進める</span> を押す</td></tr>
+<tr><td>いつまでも集計が始まらない</td><td><span class="btn">状況</span> → <span class="btn">この人抜きで進める</span>（2-2-1 を参照）</td></tr>
+<tr><td>辞めた人を完全に外したい</td><td>スプレッドシートの <code>名簿</code> タブでその人の行を削除する</td></tr>
 <tr><td>「グループに送れませんでした」と出た</td><td>しばらく待って <span class="btn">グループに送る</span> を押し直す。押すまで完了扱いにはなりません</td></tr>
 <tr><td>「いま混み合っています」と出た</td><td>同時に何人かが押したときに出ます。もう一度押してください</td></tr>
 <tr><td>日程を間違えて <span class="btn">この日程でOK</span> を押した</td><td><span class="btn">中止</span> → <span class="btn">開始</span> からやり直す。メンバーには新しいカレンダーが届く</td></tr>
@@ -169,7 +179,7 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:24px}
 <h2><span class="num">4</span>やってはいけないこと</h2>
 <ul>
 <li>スプレッドシートの <code>状態</code> <code>回答ログ</code> タブを編集する（Bot が使う場所です）</li>
-<li><code>名簿</code> タブを手で書き換える（在籍や友だち追加は Bot が管理します）</li>
+<li><code>名簿</code> タブのチェックを手で付け外しする（在籍や友だち追加は Bot が管理します）。ただし<strong>辞めた人の行を削除するのは構いません</strong></li>
 <li>当番表の「年月」「日」「曜」「来られる人」の列を編集する（直すのは午前・午後だけ）</li>
 <li>同じ日の午前と午後に同じ人を入れる（入れると赤くなります）</li>
 </ul>

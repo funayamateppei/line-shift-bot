@@ -300,19 +300,61 @@ function msgStatusWaiting_(ym, answeredCount, pendingPeople, notAddedPeople, pre
     messages.push(text_(lines.join('\n')));
   }
   var actions = [];
-  if (notAddedPeople.length) actions.push(postback_('未追加の人を外して進める', 'a=skip'));
+  if (pendingPeople.length || notAddedPeople.length) {
+    actions.push(postback_('この人抜きで進める', 'a=skip'));
+  }
   actions.push(postback_('中止', 'a=cancel'));
   messages.push(promptFlex_('操作', [], actions));
   return withAdminMenu_(messages);
 }
 
-/** 8.2 未追加の人を名簿から外した */
-function msgSkippedNotAdded_(people) {
-  var names = people.map(function (p) {
+/** 「Aさん、Bさん」 */
+function withSan_(people) {
+  return people.map(function (p) {
     return (p.name || nameOf_(p.userId)) + 'さん';
   }).join('、');
+}
+
+/** 8.3 進める前に一度たずねる */
+function msgConfirmSkip_(ym, pendingPeople, notAddedPeople) {
+  var lines = [];
+  if (pendingPeople.length) {
+    lines.push(withSan_(pendingPeople) + 'は、' + ymLabel_(ym) + 'は都合がつく日なしとして進めます。');
+  }
+  if (notAddedPeople.length) {
+    lines.push(withSan_(notAddedPeople) + 'は名簿から外します。友だち追加すればまた入ります。');
+  }
+  lines.push('よろしければもう一度〔この人抜きで進める〕を押してください。');
+
   return withAdminMenu_([
-    text_(names + 'を名簿から外しました。\n残りの人で当番表を作ります。')
+    promptFlex_('この人抜きで進めてよろしいですか？', lines, [
+      postback_('この人抜きで進める', 'a=skip&c=1'),
+      postback_('やめる', 'a=status')
+    ])
+  ]);
+}
+
+/** 8.3 進めた */
+function msgSkipped_(ym, pendingPeople, notAddedPeople) {
+  var lines = [];
+  if (pendingPeople.length) {
+    lines.push(withSan_(pendingPeople) + 'を' + ymLabel_(ym) + 'は都合がつく日なしとしました。');
+  }
+  if (notAddedPeople.length) {
+    lines.push(withSan_(notAddedPeople) + 'を名簿から外しました。');
+  }
+  lines.push('残りの人で当番表を作ります。');
+  lines.push('この先ずっと外したいときは、名簿シートでその人の行を削除してください。');
+  return withAdminMenu_([text_(lines.join('\n'))]);
+}
+
+/** 8.3 全員がいなくなってしまうので進められない */
+function msgSkipAll_() {
+  return withAdminMenu_([
+    promptFlex_('全員がいなくなってしまいます', [
+      '進めると当番を割り当てられる人がいなくなります。',
+      'このまま待つか、〔中止〕してやり直してください。'
+    ], [postback_('中止', 'a=cancel')])
   ]);
 }
 

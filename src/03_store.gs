@@ -97,9 +97,10 @@ function state_() {
   var stage = String(v[1] || '').trim() || STAGE.なし;
   var ym = String(v[0] || '').trim();
   var days = parseDays_(v[3]);
-  if (ym) {
-    // 手で編集されて、その月に無い日（30日の月の 31 日など）が入っていても落とす
-    var last = daysInMonth_(ym);
+  // 手で編集されて、その月に無い日（30日の月の 31 日など）が入っていても落とす。
+  // 年月まで壊れているときは判断できないので、そのまま残す（全部消さない）
+  var last = ym ? daysInMonth_(ym) : NaN;
+  if (!isNaN(last)) {
     days = days.filter(function (d) { return d <= last; });
   }
   return { ym: ym, stage: stage, part: String(v[2] || '').trim(), days: days };
@@ -149,9 +150,29 @@ function clearAnswers_(ym) {
   var last = sh.getLastRow();
   if (last < 2) return 0;
   var col = sh.getRange(2, 2, last - 1, 1).getValues();
+  var hit = col.map(function (r) { return String(r[0] || '').trim() === ym; });
+  return deleteMarkedRows_(sh, hit, 2);
+}
+
+/**
+ * 印の付いた行をまとめて消す。
+ * 続いている行は 1 回で消す（1 行ずつ消すと遅く、書式の範囲も痩せていく）。
+ * 後ろから消すので行番号はずれない。
+ */
+function deleteMarkedRows_(sh, hit, offset) {
   var removed = 0;
-  for (var i = col.length - 1; i >= 0; i--) {
-    if (String(col[i][0] || '').trim() === ym) { sh.deleteRow(i + 2); removed++; }
+  var end = -1;
+  for (var i = hit.length - 1; i >= -1; i--) {
+    if (i >= 0 && hit[i]) {
+      if (end < 0) end = i;
+      continue;
+    }
+    if (end >= 0) {
+      var count = end - i;
+      sh.deleteRows(i + 1 + offset, count);
+      removed += count;
+      end = -1;
+    }
   }
   return removed;
 }
@@ -207,7 +228,10 @@ function writeShift_(ym, part, rows) {
     values.push([label, r.day, r.weekday, r.am || '', r.pm || '', r.cands.join(', ')]);
   });
 
+  // 何度も作り直すと行を消したぶんシートが縮む。足りなければ足してから書く
   var start = sh.getLastRow() + 1;
+  var need = start + values.length - 1;
+  if (sh.getMaxRows() < need) sh.insertRowsAfter(sh.getMaxRows(), need - sh.getMaxRows());
   sh.getRange(start, 1, values.length, 6).setValues(values);
 
   // 担当セルのプルダウン。その日に来られる人だけを候補に入れる。
@@ -234,9 +258,8 @@ function removeMonthBlock_(sh, ym) {
   if (last < 2) return;
   var label = ymLabel_(ym);
   var col = sh.getRange(2, 1, last - 1, 1).getValues();
-  for (var i = col.length - 1; i >= 0; i--) {
-    if (String(col[i][0] || '').trim() === label) sh.deleteRow(i + 2);
-  }
+  var hit = col.map(function (r) { return String(r[0] || '').trim() === label; });
+  deleteMarkedRows_(sh, hit, 2);
 }
 
 /**

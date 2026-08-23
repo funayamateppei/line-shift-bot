@@ -32,10 +32,16 @@ function msgNotice_(ym) {
   ]);
 }
 
+/** 選べる対象月。当月・翌月・翌々月 */
+function monthChoices_(now) {
+  var base = ymOf_(now);
+  var next = nextYm_(base);
+  return [base, next, nextYm_(next)];
+}
+
 /** 5.2 何月分を作るかたずねる。当月・翌月・翌々月から選ぶ */
 function msgAskMonth_(now, prefix) {
-  var base = ymOf_(now);
-  var choices = [base, nextYm_(base), nextYm_(nextYm_(base))];
+  var choices = monthChoices_(now);
   var lines = [];
   if (prefix) lines.push(prefix);
   lines.push('何月分の当番づくりをしますか？');
@@ -228,6 +234,16 @@ function msgPublishFailed_() {
   ]);
 }
 
+/** 7.3 グループが登録されていない */
+function msgNoGroup_() {
+  return withAdminMenu_([
+    promptFlex_('送り先のグループがわかりません', [
+      '送り先のグループがわかりません。',
+      'Bot をグループに招待してください。招待すると送れるようになります。'
+    ], [postback_('グループに送る', 'a=publish')])
+  ]);
+}
+
 /** 7.3 送ったあとの返事 */
 function msgPublished_(ym) {
   return withAdminMenu_([text_('グループに送りました。' + ymLabel_(ym) + '分はこれで完了です。')]);
@@ -292,8 +308,11 @@ function msgStatusWaiting_(ym, answeredCount, pendingPeople, notAddedPeople, pre
 
 /** 8.2 未追加の人を名簿から外した */
 function msgSkippedNotAdded_(people) {
+  var names = people.map(function (p) {
+    return (p.name || nameOf_(p.userId)) + 'さん';
+  }).join('、');
   return withAdminMenu_([
-    text_(nameList_(people) + 'さんを名簿から外しました。\n残りの人で当番表を作ります。')
+    text_(names + 'を名簿から外しました。\n残りの人で当番表を作ります。')
   ]);
 }
 

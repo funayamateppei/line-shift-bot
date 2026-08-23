@@ -33,19 +33,23 @@ function quickItem_(label, data) {
   return { type: 'action', action: { type: 'postback', label: label, data: data } };
 }
 
-/** 文とボタンを 1 枚のカードにする */
+/**
+ * 文とボタンを 1 枚のカードにする。
+ * 文がないときは本文の箱をまるごと置かない。中身の空の箱は送れない。
+ */
 function promptFlex_(altText, lines, actions) {
-  var bubble = {
-    type: 'bubble',
-    body: {
+  var bubble = { type: 'bubble' };
+  var body = (lines || []).filter(function (line) { return line; });
+  if (body.length) {
+    bubble.body = {
       type: 'box',
       layout: 'vertical',
       spacing: 'sm',
-      contents: lines.map(function (line) {
+      contents: body.map(function (line) {
         return { type: 'text', text: line, wrap: true, size: 'md', color: '#333333' };
       })
-    }
-  };
+    };
+  }
   if (actions && actions.length) {
     bubble.footer = {
       type: 'box',
@@ -261,10 +265,3 @@ function shortageCopyText_(ym, part, rows) {
   return labels.join('、') + 'の担当が決まっていません。ご都合がつく方は連絡をお願いします。';
 }
 
-function hasBlank_(part, rows) {
-  for (var i = 0; i < rows.length; i++) {
-    if (!rows[i].am) return true;
-    if (part === PART.二部 && !rows[i].pm) return true;
-  }
-  return false;
-}

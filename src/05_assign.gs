@@ -12,9 +12,9 @@
  * 連投回避は考慮しない。
  *
  * 埋める数について:
- *   1 日の枠は多くても 2 つ（午前・午後）で、日どうしは干渉しない。だから
- *   「候補が少ない枠から埋める」だけで、埋められる枠は必ず埋まる。
- *   （候補が 1 人の枠を先に処理するので、その 1 人を別の枠に取られることがない）
+ *   日どうしは干渉しない（同じ人を 1 日に 1 回までという決まりは、その日の中で
+ *   閉じている）。だからその日に埋まる数は必ず min(枠の数, 出られる人の数) になり、
+ *   どんな順で処理しても最大まで埋まる。並べ替えが効くのは「均等の出発点」だけ。
  *   総当たりと突き合わせて確かめてある。test/logic.test.js を見ること。
  */
 
@@ -55,14 +55,16 @@ function newContext_(workDays, isTwoPart, availability, memberIds) {
     });
   });
 
-  var load = {};
+  // userId は名簿シートで人が編集できる。toString のような名前が入っても
+  // 壊れないよう、素の入れ物を使う
+  var load = Object.create(null);
   memberIds.forEach(function (u) { load[u] = 0; });
 
   return {
     slots: slots,
     cand: cand,
     assign: slots.map(function () { return null; }),
-    seat: {},          // '日#userId' → 埋めている枠の番号
+    seat: Object.create(null),   // '日#userId' → 埋めている枠の番号
     load: load,
     isTwoPart: isTwoPart
   };
@@ -93,7 +95,8 @@ function place_(ctx, i, u) {
  * 候補が少ない枠から、担当回数が最も少ない人を入れる（仕様 11 手順 1〜3）。
  *
  * 同じ日の午前と午後は候補がまったく同じなので、この並べ替えが変えるのは
- * 「どの日から手をつけるか」だけ。埋まる数はどの順でも変わらない。
+ * 「どの日から手をつけるか」だけ。埋まる数はどの順でも変わらない
+ * （順序を完全にばらしても最大まで埋まることを確かめてある）。
  */
 function fillGreedy_(ctx, random) {
   var order = ctx.slots.map(function (s, i) { return i; });
@@ -155,7 +158,9 @@ function handOver_(ctx) {
  */
 function searchChain_(ctx, from) {
   var goal = ctx.load[from] - 2;
-  var parent = {};
+  // ふつうの {} だと userId が toString や constructor のときに
+  // 中身がないのに「見た」ことになってしまう
+  var parent = Object.create(null);
   parent[from] = null;
   var queue = [from];
 

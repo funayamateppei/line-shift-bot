@@ -36,6 +36,10 @@ function onStart_(replyToken) {
     case STAGE.確認待ち:
       reply_(replyToken, shiftMessages_(st.ym, prefix));
       return;
+    default:
+      // 状態シートを手で書き換えられて知らない段階になっていたら、始めからやり直す
+      clearState_();
+      onStart_(replyToken);
   }
 }
 
@@ -47,7 +51,13 @@ function onStart_(replyToken) {
 function onPickMonth_(replyToken, value) {
   var st = state_();
   if (st.stage !== STAGE.対象月待ち) { onStart_(replyToken); return; }
-  if (!/^\d{4}-\d{2}$/.test(String(value || ''))) { onStart_(replyToken); return; }
+
+  // 見せた 3 つ以外は受け付けない。古いカードや壊れた値で
+  // 「2026年13月」のような月に進んでしまうのを防ぐ
+  if (monthChoices_(new Date()).indexOf(String(value || '')) < 0) {
+    reply_(replyToken, msgAskMonth_(new Date(), null));
+    return;
+  }
 
   reply_(replyToken, msgAskPart_(value, null));
   saveState_({ ym: value, stage: STAGE.部制待ち, part: '', days: [] });
@@ -84,6 +94,10 @@ function onCount_(replyToken, value) {
 function onAdminToggle_(replyToken, day) {
   var st = state_();
   if (st.stage !== STAGE.日程編集中) { onStart_(replyToken); return; }
+  if (isNaN(day) || day < 1 || day > daysInMonth_(st.ym)) {
+    reply_(replyToken, msgDraft_(st.ym, st.days, false, null));
+    return;
+  }
 
   var days = st.days.slice();
   var i = days.indexOf(day);
@@ -99,6 +113,11 @@ function onFixDays_(replyToken) {
   var st = state_();
   if (st.stage !== STAGE.日程編集中) { onStart_(replyToken); return; }
   if (!st.days.length) { reply_(replyToken, msgNeedOneDay_()); return; }
+
+  // 受付を始める前に、その月の古い回答を消す。
+  // 一度作った月をもう一度選び直したとき、前回の回答が「回答済み」として
+  // 数えられ、誰か 1 人の確定で集計が走ってしまうのを防ぐ。
+  clearAnswers_(st.ym);
 
   reply_(replyToken, msgFixed_(st.ym, st.days));
   saveState_({ ym: st.ym, stage: STAGE.回答受付中, part: st.part, days: st.days });
@@ -123,7 +142,7 @@ function sendCalendars_(ym, workDays) {
     to: s.groupId,
     messages: [built.mention]
   });
-  if (res.code >= 300) push_(s.groupId, [built.plain]);
+  if (!isOk_(res)) push_(s.groupId, [built.plain]);
 }
 
 /** 8.2 状況 */
@@ -131,11 +150,9 @@ function onStatus_(replyToken) {
   var st = state_();
 
   // 送信に失敗するなどで集計のきっかけを取りこぼしていた場合の受け皿。
-  // 条件がそろっていればここで集計して、当番表を返す
-  if (st.stage === STAGE.回答受付中 && maybeAggregate_()) {
-    reply_(replyToken, shiftMessages_(st.ym, null));
-    return;
-  }
+  // 条件がそろっていればここで集計する。当番表は集計のなかで送るので、
+  // ここで返すと同じ表が 2 度届いてしまう
+  if (st.stage === STAGE.回答受付中) maybeAggregate_();
 
   st = state_();
   switch (st.stage) {
@@ -162,8 +179,11 @@ function onStatus_(replyToken) {
 
 function statusWaitingMessages_(ym, prefix) {
   var answered = answersFor_(ym);
-  var waiting = pending_(ym);
-  return msgStatusWaiting_(ym, Object.keys(answered).length, waiting, notAdded_(), prefix);
+  // 数えるのはいまのメンバーだけ。抜けた人の回答は残っているが人数には入れない
+  var count = members_().filter(function (p) {
+    return Object.prototype.hasOwnProperty.call(answered, p.userId);
+  }).length;
+  return msgStatusWaiting_(ym, count, pending_(ym), notAdded_(), prefix);
 }
 
 /**
@@ -173,9 +193,12 @@ function statusWaitingMessages_(ym, prefix) {
  */
 function onCancel_(replyToken) {
   var st = state_();
-  reply_(replyToken, msgCancelled_());
-  clearAnswers_(st.ym);
+  // 公開まで終わった月の記録は消さない。誤って押しても失われないように
+  var target = (st.stage === STAGE.回答受付中 || st.stage === STAGE.確認待ち) ? st.ym : '';
+
   clearState_();
+  reply_(replyToken, msgCancelled_());
+  clearAnswers_(target);   // 時間がかかるので状態と返事のあとに
 }
 
 /**
@@ -211,13 +234,11 @@ function onPublish_(replyToken) {
   var st = state_();
   if (st.stage !== STAGE.確認待ち) { onStatus_(replyToken); return; }
 
-  var shift = readShift_(st.ym);
   var s = settings_();
-  var sent = s.groupId
-    ? push_(s.groupId, msgPublish_(st.ym, shift.part || st.part, shift.rows))
-    : false;
+  if (!s.groupId) { reply_(replyToken, msgNoGroup_()); return; }
 
-  if (!sent) {
+  var shift = readShift_(st.ym);
+  if (!push_(s.groupId, msgPublish_(st.ym, shift.part || st.part, shift.rows))) {
     reply_(replyToken, msgPublishFailed_());
     return;
   }

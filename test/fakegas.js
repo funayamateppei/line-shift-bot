@@ -5,6 +5,8 @@
 
 function makeSheet(name, id) {
   const data = [];
+  // 本物のシートには行数の上限がある。消せば減り、範囲を超えて書こうとすると落ちる
+  let maxRows = 1000;
 
   const at = (r, c) => {
     while (data.length < r) data.push([]);
@@ -35,6 +37,9 @@ function makeSheet(name, id) {
   };
 
   function makeRange(r, c, nr, nc) {
+    if (r < 1 || r - 1 + nr > maxRows) {
+      throw new Error(`範囲が広すぎます: ${name} 行 ${r}〜${r + nr - 1}（このシートは ${maxRows} 行）`);
+    }
     const range = {
       getValues() {
         const out = [];
@@ -94,8 +99,15 @@ function makeSheet(name, id) {
       for (let j = 0; j < row.length; j++) target[j] = row[j];
       return sheet;
     },
-    deleteRow(r) {
-      data.splice(r - 1, 1);
+    deleteRow(r) { return sheet.deleteRows(r, 1); },
+    deleteRows(r, n) {
+      data.splice(r - 1, n);
+      maxRows -= n;              // 本物も行が減る
+      return sheet;
+    },
+    getMaxRows: () => maxRows,
+    insertRowsAfter(after, n) {
+      maxRows += n;
       return sheet;
     },
     _dump: () => data.map(r => r.slice())
@@ -159,6 +171,9 @@ function makeGas() {
     UrlFetchApp: {
       fetch(url, options) {
         const payload = options && options.payload ? JSON.parse(options.payload) : null;
+        if (payload && payload.messages) {
+          payload.messages.forEach(m => checkMessage(m, gas.badMessages));
+        }
         sent.push({ url, method: options.method, payload });
 
         // 失敗を起こしたいときに差し込む
@@ -202,13 +217,75 @@ function makeGas() {
 
     // テストから触るつまみ
     failNext: [],        // 'throw' か HTTP コードを積むと、その順に送信が失敗する
-    lockAvailable: true  // false にすると順番待ちが取れない
+    lockAvailable: true, // false にすると順番待ちが取れない
+    badMessages: []      // 送れない形のメッセージが見つかるとここに溜まる
   };
   return gas;
 }
 
 function fakeResponse(code, text) {
   return { getResponseCode: () => code, getContentText: () => text };
+}
+
+/**
+ * 送ろうとしているメッセージの形を確かめる。
+ * LINE は受け取れないものを 400 で返すが、そうなると同じ送信に載せた
+ * ほかの吹き出しも丸ごと届かない。届かない形を作っていないかここで見る。
+ */
+function checkMessage(m, bad) {
+  if (!m || !m.type) { bad.push('type がない: ' + JSON.stringify(m)); return; }
+
+  if (m.type === 'text' || m.type === 'textV2') {
+    if (!m.text) bad.push('本文が空の text');
+    else if (m.text.length > 5000) bad.push('text が 5000 文字を超える');
+    return;
+  }
+  if (m.type === 'flex') {
+    if (!m.altText) bad.push('altText がない flex');
+    else if (m.altText.length > 400) bad.push('altText が 400 文字を超える');
+    checkContainer(m.contents, bad);
+    return;
+  }
+  bad.push('知らない type: ' + m.type);
+}
+
+function checkContainer(c, bad) {
+  if (!c) { bad.push('contents がない flex'); return; }
+  if (c.type === 'carousel') {
+    if (!c.contents || !c.contents.length) bad.push('中身の空の carousel');
+    else c.contents.forEach(b => checkContainer(b, bad));
+    return;
+  }
+  if (c.type !== 'bubble') { bad.push('bubble でも carousel でもない: ' + c.type); return; }
+  // bubble は header / hero / body / footer のどれかが要る
+  if (!c.header && !c.hero && !c.body && !c.footer) bad.push('中身の空の bubble');
+  ['header', 'body', 'footer'].forEach(k => { if (c[k]) checkComponent(c[k], bad); });
+}
+
+function checkComponent(v, bad) {
+  if (!v || !v.type) { bad.push('type のない部品'); return; }
+  if (v.type === 'box') {
+    if (!Array.isArray(v.contents) || v.contents.length === 0) {
+      bad.push('中身の空の box');          // ← LINE はこれを受け取れない
+      return;
+    }
+    v.contents.forEach(child => checkComponent(child, bad));
+    return;
+  }
+  if (v.type === 'text') {
+    if (!v.text) bad.push('本文の空の text 部品');
+    return;
+  }
+  if (v.type === 'button') {
+    if (!v.action || !v.action.type) bad.push('action のない button');
+    else if (v.action.type === 'postback' && !v.action.data) bad.push('data のない postback');
+    else if (v.action.data && v.action.data.length > 300) bad.push('postback の data が 300 文字を超える');
+    if (v.action && v.action.label !== undefined && !v.action.label) bad.push('label が空の button');
+    return;
+  }
+  if (v.type === 'filler' || v.type === 'separator' || v.type === 'spacer'
+    || v.type === 'image' || v.type === 'icon') return;
+  bad.push('知らない部品: ' + v.type);
 }
 
 module.exports = { makeGas };

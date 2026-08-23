@@ -75,11 +75,13 @@ function pad4_(n) {
 /** '2,6,9' ⇄ [2,6,9] */
 function parseDays_(text) {
   if (!text) return [];
-  return String(text)
-    .split(',')
-    .map(function (s) { return parseInt(String(s).trim(), 10); })
-    .filter(function (n) { return !isNaN(n) && n >= 1 && n <= 31; })
-    .sort(function (a, b) { return a - b; });
+  var out = [];
+  String(text).split(',').forEach(function (s) {
+    var n = parseInt(String(s).trim(), 10);
+    if (isNaN(n) || n < 1 || n > 31) return;
+    if (out.indexOf(n) < 0) out.push(n);   // 同じ日が並んでいても 1 つに
+  });
+  return out.sort(function (a, b) { return a - b; });
 }
 
 function joinDays_(days) {

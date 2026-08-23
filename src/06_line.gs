@@ -27,7 +27,12 @@ function push_(to, messages) {
     to: to,
     messages: messages.slice(0, 5)
   });
-  return res.code < 300;
+  return isOk_(res);
+}
+
+/** 送れたか。つながらなかったとき（code 0）を成功と数えないこと */
+function isOk_(res) {
+  return res.code >= 200 && res.code < 300;
 }
 
 /** 送信。つながらなかった場合も落とさず、失敗として返す */

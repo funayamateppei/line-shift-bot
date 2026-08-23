@@ -26,15 +26,18 @@ function doPost(e) {
 
 /**
  * シートの読み書きが重ならないようにする。
- * 順番が回ってこなかったときは、押した人に「もう一度押してください」と返す。
+ *
+ * 順番が回ってこなかったときは、ボタンを押した人に「もう一度押してください」と返す。
  * LINE は送り直してくれないので、黙って捨てると本人が気づけない。
+ * 返すのはボタン（postback）だけ。友だち追加やグループの発言に返すと、
+ * 押すもののない人に妙な返事をしたり、グループの雑談に割り込んだりする。
  */
 function withLock_(events, fn) {
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) {
     log_('ほかの処理が動いているため見送りました');
     events.forEach(function (ev) {
-      if (ev.replyToken) reply_(ev.replyToken, msgBusy_());
+      if (ev.type === 'postback' && ev.replyToken) reply_(ev.replyToken, msgBusy_());
     });
     return;
   }
@@ -99,14 +102,16 @@ function onMemberJoined_(ev) {
   var joined = (ev.joined && ev.joined.members) || [];
   var names = [];
 
+  var any = false;
   joined.forEach(function (m) {
     if (!m.userId) return;
     var name = groupId ? groupMemberName_(groupId, m.userId) : '';
     rosterUpsert_(m.userId, { name: name, inGroup: true });
-    names.push(name);
+    any = true;
+    if (name) names.push(name);   // 名前が取れなかった人は並べない
   });
 
-  if (names.length) reply_(ev.replyToken, msgMemberJoined_(names.join('さん、')));
+  if (any) reply_(ev.replyToken, msgMemberJoined_(names.join('さん、')));
 }
 
 /** 4.5 グループを抜けた。何も送らない */

@@ -210,7 +210,7 @@ function numberGridFlex_(ym) {
 
 /** 「Aさん、Bさん」 */
 function nameList_(people) {
-  return people.map(function (p) { return p.name || nameOf_(p.userId); }).join('、');
+  return people.map(function (p) { return p.name || '名前未取得'; }).join('、');
 }
 
 /** コピーしてグループに送ってもらう文 */
@@ -218,12 +218,12 @@ function askCopyText_(pendingPeople, notAddedPeople) {
   var parts = [];
   if (pendingPeople.length) {
     parts.push(pendingPeople.map(function (p) {
-      return (p.name || nameOf_(p.userId)) + 'さん';
+      return (p.name || '名前未取得') + 'さん';
     }).join('、') + '、回答お願いします。');
   }
   if (notAddedPeople.length) {
     parts.push(notAddedPeople.map(function (p) {
-      return (p.name || nameOf_(p.userId)) + 'さん';
+      return (p.name || '名前未取得') + 'さん';
     }).join('、') + '、Bot の友だち追加をお願いします。');
   }
   return parts.join('');

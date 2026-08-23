@@ -16,7 +16,9 @@ function rosterAll_() {
   if (last < 2) return [];
   var values = sh.getRange(2, 1, last - 1, 5).getValues();
   // 手で編集して同じ userId が 2 行できても二重に数えない。後の行を採用する
-  var byId = {};
+  // userId は名簿シートで人が編集できる。toString のような名前が入っても
+  // 「もうある」と誤って判断しないよう、素の入れ物を使う
+  var byId = Object.create(null);
   var order = [];
   for (var i = 0; i < values.length; i++) {
     var id = String(values[i][0] || '').trim();
@@ -81,11 +83,10 @@ function rosterUpsert_(userId, patch) {
   return { userId: userId, name: name, inGroup: inGroup, friend: friend, row: found.row };
 }
 
-/** 表示名。無ければ userId の断片を返す */
+/** 表示名。取れていなければ空を返す（userId は外へ出さない） */
 function nameOf_(userId) {
   var p = rosterFind_(userId);
-  if (p && p.name) return p.name;
-  return String(userId || '').slice(0, 8);
+  return p && p.name ? p.name : '';
 }
 
 // ---------------------------------------------------------------- 状態
@@ -186,7 +187,7 @@ function answersFor_(ym) {
   var last = sh.getLastRow();
   if (last < 2) return {};
   var values = sh.getRange(2, 1, last - 1, 5).getValues();
-  var out = {};
+  var out = Object.create(null);
   for (var i = 0; i < values.length; i++) {
     if (String(values[i][1] || '').trim() !== ym) continue;
     var id = String(values[i][2] || '').trim();
@@ -239,9 +240,12 @@ function writeShift_(ym, part, rows) {
   var rules = [];
   rules.push([null, null]);
   rows.forEach(function (r) {
-    var list = r.cands.concat(['']);
+    // その日に来られる人が 1 人もいないときはプルダウンを置かない。
+    // 空だけの候補リストは作れない
+    if (!r.cands.length) { rules.push([null, null]); return; }
+
     var rule = SpreadsheetApp.newDataValidation()
-      .requireValueInList(list, true)
+      .requireValueInList(r.cands.concat(['']), true)
       .setAllowInvalid(true)
       .build();
     rules.push([rule, part === PART.二部 ? rule : null]);
@@ -283,6 +287,9 @@ function readShift_(ym) {
       part = String(values[i][3] || '').trim();
       continue;
     }
+    // 手で「6日」などと直されて数にならない行は読まない。
+    // 読むと 9/NaN のような表がそのままグループへ届いてしまう
+    if (isNaN(Number(day))) continue;
     rows.push({
       day: Number(day),
       weekday: String(values[i][2] || ''),

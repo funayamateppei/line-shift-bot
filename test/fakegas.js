@@ -7,6 +7,17 @@ function makeSheet(name, id) {
   const data = [];
   // 本物のシートには行数の上限がある。消せば減り、範囲を超えて書こうとすると落ちる
   let maxRows = 1000;
+  const validations = {};
+  const formats = {};
+
+  /** 置かれた入力規則を覚える。空の候補リストは本物が受け付けない */
+  const putRule = (r, c, rule) => {
+    if (rule && rule.list) {
+      const real = rule.list.filter(v => v !== '' && v !== null && v !== undefined);
+      if (!real.length) throw new Error(`候補が空のプルダウンは置けません: ${name} ${r}行${c}列`);
+    }
+    validations[r + ',' + c] = rule || null;
+  };
 
   const at = (r, c) => {
     while (data.length < r) data.push([]);
@@ -65,7 +76,27 @@ function makeSheet(name, id) {
         return range;
       },
       getRow() { return r; },
-      getColumn() { return c; }
+      getColumn() { return c; },
+      // 入力規則は本当に何が置かれたか覚えておく。
+      // 素通しにすると「候補が空のプルダウン」のような形をテストで見つけられない
+      setDataValidation(rule) {
+        for (let i = 0; i < nr; i++) {
+          for (let j = 0; j < nc; j++) putRule(r + i, c + j, rule);
+        }
+        return range;
+      },
+      setDataValidations(rules) {
+        rules.forEach((row, i) => row.forEach((rule, j) => putRule(r + i, c + j, rule)));
+        return range;
+      },
+      getDataValidation: () => validations[r + ',' + c] || null,
+      setNumberFormat(f) {
+        for (let i = 0; i < nr; i++) {
+          for (let j = 0; j < nc; j++) formats[(r + i) + ',' + (c + j)] = f;
+        }
+        return range;
+      },
+      getNumberFormat: () => formats[r + ',' + c] || ''
     };
     // 見た目に関わるものは何もしない
     // 本物の insertCheckboxes はセルに FALSE を書き込む。
@@ -80,8 +111,8 @@ function makeSheet(name, id) {
       return range;
     };
     ['setBackground', 'setFontColor', 'setFontWeight', 'setFontSize', 'setFontFamily',
-      'setHorizontalAlignment', 'setVerticalAlignment', 'setNumberFormat', 'setBorder',
-      'setDataValidation', 'setDataValidations', 'clearDataValidations',
+      'setHorizontalAlignment', 'setVerticalAlignment', 'setBorder',
+      'clearDataValidations',
       'setWrap'].forEach(m => { range[m] = () => range; });
     return range;
   }
@@ -95,6 +126,7 @@ function makeSheet(name, id) {
     getDataRange: () => makeRange(1, 1, Math.max(lastRow(), 1), Math.max(lastCol(), 1)),
     appendRow(row) {
       const r = lastRow() + 1;
+      if (r > maxRows) maxRows = r;   // 本物は足りなければ行が増える
       const target = at(r, row.length);
       for (let j = 0; j < row.length; j++) target[j] = row[j];
       return sheet;
@@ -165,13 +197,24 @@ function makeGas() {
       openById: () => book,
       flush: () => {},
       newConditionalFormatRule: () => chainBuilder(),
-      newDataValidation: () => chainBuilder()
+      newDataValidation: () => {
+        const st = { list: null };
+        const b = {
+          requireValueInList(list) { st.list = list; return b; },
+          requireCheckbox() { st.checkbox = true; return b; },
+          setAllowInvalid() { return b; },
+          setHelpText() { return b; },
+          build: () => st
+        };
+        return b;
+      }
     },
 
     UrlFetchApp: {
       fetch(url, options) {
         const payload = options && options.payload ? JSON.parse(options.payload) : null;
         if (payload && payload.messages) {
+          if (payload.messages.length > 5) gas.badMessages.push('1 回に 5 件を超えて送っている');
           payload.messages.forEach(m => checkMessage(m, gas.badMessages));
         }
         sent.push({ url, method: options.method, payload });
@@ -234,6 +277,13 @@ function fakeResponse(code, text) {
  */
 function checkMessage(m, bad) {
   if (!m || !m.type) { bad.push('type がない: ' + JSON.stringify(m)); return; }
+
+  if (m.quickReply) {
+    const items = m.quickReply.items || [];
+    if (!items.length) bad.push('中身の空の quickReply');
+    if (items.length > 13) bad.push('quickReply が 13 件を超える');
+  }
+  if (JSON.stringify(m).length > 50000) bad.push('メッセージが大きすぎる');
 
   if (m.type === 'text' || m.type === 'textV2') {
     if (!m.text) bad.push('本文が空の text');

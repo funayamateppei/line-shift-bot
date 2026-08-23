@@ -132,6 +132,9 @@ function ensureStateSheet_() {
   sh.setColumnWidth(2, 130);
   sh.setColumnWidth(3, 130);
   sh.setColumnWidth(4, 260);
+  // 「2026-09」や「2,6,9」を日付や数と解釈させない。
+  // 化けると書いた文字と読んだ文字が変わり、対象年月の照合が通らなくなる
+  sh.getRange(2, 1, 1, 4).setNumberFormat('@');
   sh.setTabColor('#999999');
   return sh;
 }
@@ -150,6 +153,9 @@ function ensureAnswerSheet_() {
   sh.setColumnWidth(4, 140);
   sh.setColumnWidth(5, 220);
   sh.getRange(2, 3, 999, 1).setFontSize(10).setFontColor(COLOR.補足文字);
+  // 対象年月と都合がつく日を、日付や数に化けさせない
+  sh.getRange(2, 2, 999, 1).setNumberFormat('@');
+  sh.getRange(2, 5, 999, 1).setNumberFormat('@');
   sh.setTabColor('#999999');
   return sh;
 }

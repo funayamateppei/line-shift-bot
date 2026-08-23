@@ -125,6 +125,14 @@ function startFor(env, ym) {
   postback(env, 'a=ym&v=' + ym, 'Uadmin');
 }
 
+/** 聞き返しカードに出ている〔この人抜きで進める〕を押す */
+function confirmSkip(env) {
+  const data = buttonData(env).find(d => d.indexOf('a=skip&c=1') === 0);
+  if (!data) throw new Error('聞き返しのボタンが見つかりません: ' + buttonData(env).join(' '));
+  postback(env, data, 'Uadmin');
+  return data;
+}
+
 const PEOPLE = [
   { id: 'Ualice', name: '山田' },
   { id: 'Ubob', name: '佐藤' },
@@ -697,8 +705,9 @@ section('未追加の人を外して進める');
   check('まだ外していない', ctx.notAdded_().length === 1);
   check('やめる道がある', buttonData(env).includes('a=status'));
 
-  env.gas.sent.length = 0;
-  postback(env, 'a=skip&c=1', 'Uadmin');
+  const skipData = confirmSkip(env);
+  check('ボタンに月と人数を持たせる',
+    skipData.includes('ym=2026-09') && skipData.includes('n=0') && skipData.includes('m=1'), skipData);
   check('外したことを伝える', lastReplyText(env).includes('鈴木さんを名簿から外しました。'));
   check('ずっと外す方法も案内する',
     lastReplyText(env).includes('名簿シートでその人の行を削除してください'));
@@ -733,7 +742,7 @@ section('答えない人を抜いて進める');
     lastReplyText(env).includes('鈴木さんは、2026年9月は都合がつく日なしとして進めます'),
     lastReplyText(env));
 
-  postback(env, 'a=skip&c=1', 'Uadmin');
+  confirmSkip(env);
   check('集計まで進む', ctx.state_().stage === '確認待ち');
   check('名簿からは外さない', ctx.members_().length === 3);
   check('その月の当番には入らない',
@@ -749,6 +758,250 @@ section('答えない人を抜いて進める');
   check('翌月はカレンダーが届く',
     pushes(env).some(x => x.payload.to === 'Ucarol'),
     JSON.stringify(pushes(env).map(x => x.payload.to)));
+}
+
+section('古い〔この人抜きで進める〕を別の月で押したとき');
+{
+  const env = newEnv(new RealDate(2026, 7, 15, 9, 0));
+  const { ctx } = env;
+  joinGroupWith(env, PEOPLE);
+  PEOPLE.forEach(p => follow(env, p.id));
+
+  // 9 月分で聞き返しカードを出す
+  startFor(env, '2026-09');
+  postback(env, 'a=part&v=1', 'Uadmin');
+  postback(env, 'a=num&v=2', 'Uadmin');
+  postback(env, 'a=aok', 'Uadmin');
+  postback(env, `a=mok&ym=2026-09&s=${ctx.daysToMask_(ctx.state_().days)}`, 'Ualice');
+  env.gas.sent.length = 0;
+  postback(env, 'a=skip', 'Uadmin');
+  const oldCard = buttonData(env).find(d => d.indexOf('a=skip&c=1') === 0);
+
+  // 中止して 10 月分を始める
+  postback(env, 'a=cancel', 'Uadmin');
+  startFor(env, '2026-10');
+  postback(env, 'a=part&v=1', 'Uadmin');
+  postback(env, 'a=num&v=2', 'Uadmin');
+  postback(env, 'a=aok', 'Uadmin');
+  postback(env, `a=mok&ym=2026-10&s=${ctx.daysToMask_(ctx.state_().days)}`, 'Ualice');
+
+  // さかのぼって 9 月分のカードを押す
+  env.gas.sent.length = 0;
+  postback(env, oldCard, 'Uadmin');
+  check('いきなり実行しない', ctx.state_().stage === '回答受付中');
+  check('もう一度たずねる',
+    lastReplyText(env).includes('もう一度〔この人抜きで進める〕を押してください'), lastReplyText(env));
+  check('10月の人を巻き込まない', Object.keys(ctx.answersFor_('2026-10')).length === 1);
+}
+
+section('確認のあいだに顔ぶれが変わったとき');
+{
+  const env = newEnv(new RealDate(2026, 7, 15, 9, 0));
+  const { ctx } = env;
+  joinGroupWith(env, PEOPLE);
+  follow(env, 'Ualice');
+  follow(env, 'Ubob');   // 鈴木はまだ未追加
+
+  startFor(env, '2026-09');
+  postback(env, 'a=part&v=1', 'Uadmin');
+  postback(env, 'a=num&v=2', 'Uadmin');
+  postback(env, 'a=aok', 'Uadmin');
+  const mask = ctx.daysToMask_(ctx.state_().days);
+  postback(env, `a=mok&ym=2026-09&s=${mask}`, 'Ualice');
+  postback(env, `a=mok&ym=2026-09&s=${mask}`, 'Ubob');
+
+  env.gas.sent.length = 0;
+  postback(env, 'a=skip', 'Uadmin');
+  const card = buttonData(env).find(d => d.indexOf('a=skip&c=1') === 0);
+  check('未追加として案内する', lastReplyText(env).includes('鈴木さんは名簿から外します'));
+
+  // 押す前に鈴木が友だち追加した
+  follow(env, 'Ucarol');
+  env.gas.sent.length = 0;
+  postback(env, card, 'Uadmin');
+  check('そのままは実行しない', ctx.state_().stage === '回答受付中');
+  check('新しい顔ぶれでたずね直す',
+    lastReplyText(env).includes('鈴木さんは、2026年9月は都合がつく日なしとして進めます'), lastReplyText(env));
+  check('追加した人をいきなり締め切らない', !ctx.hasAnswered_('2026-09', 'Ucarol'));
+}
+
+section('残った人が全員「都合がつく日なし」のとき');
+{
+  const env = newEnv(new RealDate(2026, 7, 15, 9, 0));
+  const { ctx } = env;
+  joinGroupWith(env, PEOPLE);
+  PEOPLE.forEach(p => follow(env, p.id));
+  startFor(env, '2026-09');
+  postback(env, 'a=part&v=1', 'Uadmin');
+  postback(env, 'a=num&v=2', 'Uadmin');
+  postback(env, 'a=aok', 'Uadmin');
+
+  // 山田だけが答えたが「都合がつく日なし」
+  postback(env, 'a=mok&ym=2026-09&s=0', 'Ualice');
+  postback(env, 'a=mok&ym=2026-09&s=0&c=1', 'Ualice');
+
+  env.gas.sent.length = 0;
+  postback(env, 'a=skip', 'Uadmin');
+  check('全部空の当番表を作らせない',
+    lastReplyText(env).includes('当番を割り当てられる人がいなくなります'), lastReplyText(env));
+  check('段階は変わらない', ctx.state_().stage === '回答受付中');
+}
+
+section('当番表が決めた日程とそろっていないとき');
+{
+  const env = newEnv(new RealDate(2026, 7, 15, 9, 0));
+  const { ctx } = env;
+  joinGroupWith(env, PEOPLE);
+  PEOPLE.forEach(p => follow(env, p.id));
+  startFor(env, '2026-09');
+  postback(env, 'a=part&v=1', 'Uadmin');
+  postback(env, 'a=num&v=2', 'Uadmin');
+  postback(env, 'a=aok', 'Uadmin');
+  const mask = ctx.daysToMask_(ctx.state_().days);
+  PEOPLE.forEach(p => postback(env, `a=mok&ym=2026-09&s=${mask}`, p.id));
+  check('確認待ちになる', ctx.state_().stage === '確認待ち');
+
+  // 管理者が表を直しているときに行を消してしまった
+  const sh = env.gas.book.getSheetByName('当番_2026年度');
+  while (sh.getLastRow() > 1) sh.deleteRow(2);
+
+  env.gas.sent.length = 0;
+  postback(env, 'a=publish', 'Uadmin');
+  check('見出しだけを送らない', !pushes(env).some(x => x.payload.to === 'Cgroup'));
+  check('そろっていないと伝える',
+    lastReplyText(env).includes('決めた日程とそろっていません'), lastReplyText(env));
+  check('公開済みにしない', ctx.state_().stage === '確認待ち');
+}
+
+section('当番表の「日」を手で書き換えられたとき');
+{
+  const env = newEnv(new RealDate(2026, 7, 15, 9, 0));
+  const { ctx } = env;
+  joinGroupWith(env, PEOPLE);
+  PEOPLE.forEach(p => follow(env, p.id));
+  startFor(env, '2026-09');
+  postback(env, 'a=part&v=1', 'Uadmin');
+  postback(env, 'a=num&v=3', 'Uadmin');
+  postback(env, 'a=aok', 'Uadmin');
+  const mask = ctx.daysToMask_(ctx.state_().days);
+  PEOPLE.forEach(p => postback(env, `a=mok&ym=2026-09&s=${mask}`, p.id));
+
+  // 「6」を「6日」に直してしまった
+  const sh = env.gas.book.getSheetByName('当番_2026年度');
+  sh.getRange(4, 2).setValue('6日');
+
+  check('数にならない行は読まない',
+    ctx.readShift_('2026-09').rows.every(r => !isNaN(r.day)),
+    JSON.stringify(ctx.readShift_('2026-09').rows.map(r => r.day)));
+
+  env.gas.sent.length = 0;
+  postback(env, 'a=publish', 'Uadmin');
+  const group = pushTextTo(env, 'Cgroup');
+  check('9/NaN をグループへ送らない', !group.includes('NaN'), group);
+  check('送らずに知らせる', !pushes(env).some(x => x.payload.to === 'Cgroup'));
+  check('公開済みにしない', ctx.state_().stage === '確認待ち');
+}
+
+section('同じ表示名の人がいるとき');
+{
+  const env = newEnv(new RealDate(2026, 7, 15, 9, 0));
+  const { ctx } = env;
+  ev(env, { type: 'join', replyToken: 'tok', source: { type: 'group', groupId: 'Cgroup' } });
+  [['Ualice', '田中'], ['Ubob', '田中'], ['Ucarol', '山田']].forEach(([id, name]) => {
+    env.gas.names[id] = name;
+    ev(env, {
+      type: 'memberJoined', replyToken: 'tok',
+      source: { type: 'group', groupId: 'Cgroup' },
+      joined: { members: [{ type: 'user', userId: id }] }
+    });
+    follow(env, id);
+  });
+
+  startFor(env, '2026-09');
+  postback(env, 'a=part&v=2', 'Uadmin');
+  postback(env, 'a=num&v=2', 'Uadmin');
+  postback(env, 'a=aok', 'Uadmin');
+  const mask = ctx.daysToMask_(ctx.state_().days);
+  ['Ualice', 'Ubob', 'Ucarol'].forEach(id => postback(env, `a=mok&ym=2026-09&s=${mask}`, id));
+
+  const shift = ctx.readShift_('2026-09');
+  const flat = JSON.stringify(shift.rows);
+  check('同じ名前を区別できる形にする', flat.includes('田中(2)'), flat);
+  shift.rows.forEach(r => {
+    check(`${r.day}日は午前と午後が別の表記`, r.am !== r.pm, JSON.stringify(r));
+  });
+}
+
+section('表示名が取れていない人');
+{
+  const env = newEnv(new RealDate(2026, 7, 15, 9, 0));
+  const { ctx } = env;
+  ev(env, { type: 'join', replyToken: 'tok', source: { type: 'group', groupId: 'Cgroup' } });
+  ['Ualice', 'Ubob'].forEach(id => {
+    env.gas.names[id] = '';        // 名前が取れない
+    ev(env, {
+      type: 'memberJoined', replyToken: 'tok',
+      source: { type: 'group', groupId: 'Cgroup' },
+      joined: { members: [{ type: 'user', userId: id }] }
+    });
+    follow(env, id);
+  });
+
+  startFor(env, '2026-09');
+  postback(env, 'a=part&v=1', 'Uadmin');
+  postback(env, 'a=num&v=2', 'Uadmin');
+  postback(env, 'a=aok', 'Uadmin');
+  const mask = ctx.daysToMask_(ctx.state_().days);
+  ['Ualice', 'Ubob'].forEach(id => postback(env, `a=mok&ym=2026-09&s=${mask}`, id));
+
+  env.gas.sent.length = 0;
+  postback(env, 'a=publish', 'Uadmin');
+  const group = pushTextTo(env, 'Cgroup');
+  check('userId をグループに出さない', !group.includes('Ualice') && !group.includes('Ubob'), group);
+  check('名前の代わりの言葉を使う', group.includes('名前未取得'), group);
+  check('名前を引き直しても userId は出さない', ctx.nameOf_('Ualice') === '', ctx.nameOf_('Ualice'));
+
+  // 締切の連絡やコピー用の文にも出さない
+  ctx.saveState_({ ym: '2026-09', stage: '回答受付中', part: '1部制', days: [3] });
+  env.gas.setNow(new RealDate(2026, 7, 25, 9, 0));
+  env.gas.sent.length = 0;
+  ctx.daily();
+  const due = pushTextTo(env, 'Uadmin');
+  check('締切の連絡にも userId を出さない',
+    !due.includes('Ualice') && !due.includes('Ubob'), due);
+}
+
+section('その日に誰も来られない日のプルダウン');
+{
+  const env = newEnv(new RealDate(2026, 7, 15, 9, 0));
+  const { ctx } = env;
+  joinGroupWith(env, PEOPLE);
+  PEOPLE.forEach(p => follow(env, p.id));
+  startFor(env, '2026-09');
+  postback(env, 'a=part&v=2', 'Uadmin');
+  postback(env, 'a=num&v=3', 'Uadmin');
+  postback(env, 'a=aok', 'Uadmin');
+  const days = ctx.state_().days.slice();
+
+  // 2 日目は誰も出られない
+  const only = ctx.daysToMask_([days[0], days[2]]);
+  let broke = null;
+  try {
+    PEOPLE.forEach(p => postback(env, `a=mok&ym=2026-09&s=${only}`, p.id));
+  } catch (e) {
+    broke = e.message;
+  }
+  check('候補がいない日があっても落ちない', broke === null, broke || '');
+  check('集計できる', ctx.state_().stage === '確認待ち');
+  const shift = ctx.readShift_('2026-09');
+  check('その日は空欄', shift.rows.find(r => r.day === days[1]).am === '');
+
+  // 誰も来られない日にはプルダウンを置かない。置ける人がいる日には置く
+  const sh = env.gas.book.getSheetByName('当番_2026年度');
+  const rowOf = d => 2 + 1 + shift.rows.findIndex(r => r.day === d);   // 見出し行のぶん +1
+  check('誰も来られない日は候補なし', sh.getRange(rowOf(days[1]), 4).getDataValidation() === null);
+  const ok = sh.getRange(rowOf(days[2]), 4).getDataValidation();
+  check('来られる人がいる日は候補あり', ok && ok.list && ok.list.length > 1, JSON.stringify(ok));
 }
 
 section('進めると誰もいなくなるとき');
@@ -768,7 +1021,7 @@ section('進めると誰もいなくなるとき');
   check('押させない', lastReplyText(env).includes('当番を割り当てられる人がいなくなります'));
   check('進める道は中止だけ', buttonData(env).includes('a=cancel'));
 
-  postback(env, 'a=skip&c=1', 'Uadmin');
+  postback(env, 'a=skip&c=1&ym=2026-09&n=3&m=0', 'Uadmin');
   check('確認済みでも進めない', ctx.state_().stage === '回答受付中');
   check('誰も名簿から外れない', ctx.members_().length === 3);
 }
@@ -822,6 +1075,10 @@ section('状況で集計を見直す');
   check('当番表は 1 度だけ届く', tables.length === 1,
     tables.map(t => t.url.split('/').pop()).join(' と '));
   check('届くのは push のほう', tables[0] && tables[0].url.endsWith('/message/push'));
+
+  check('押した手応えは返す',
+    flatten(replies(env).map(r => r.payload.messages)).includes('当番表ができました'),
+    flatten(replies(env).map(r => r.payload.messages)));
 
   // もう一度押せば、こんどは表が返ってくる
   env.gas.sent.length = 0;
@@ -1011,7 +1268,8 @@ section('未追加の人が 2 人いるとき');
   postback(env, `a=mok&ym=2026-09&s=${ctx.daysToMask_(ctx.state_().days)}`, 'Ualice');
 
   env.gas.sent.length = 0;
-  postback(env, 'a=skip&c=1', 'Uadmin');
+  postback(env, 'a=skip', 'Uadmin');
+  confirmSkip(env);
   check('ひとりずつ「さん」を付ける',
     lastReplyText(env).includes('佐藤さん、鈴木さんを名簿から外しました。'), lastReplyText(env));
 }
@@ -1082,7 +1340,10 @@ section('順番待ちが切れたときに返す相手');
   ctx.doPost({ postData: { contents: JSON.stringify({ events: [{
     type: 'follow', replyToken: 'tok', source: { type: 'user', userId: 'Udave' }
   }] }) } });
-  check('友だち追加には妙な返事をしない', env.gas.sent.length === 0, lastReplyText(env));
+  check('友だち追加は取りこぼさず名簿に載せる',
+    ctx.rosterFind_('Udave') && ctx.rosterFind_('Udave').friend === true,
+    JSON.stringify(ctx.rosterFind_('Udave')));
+  check('順番待ちの文は返さない', !lastReplyText(env).includes('もう一度押してください'));
 
   env.gas.sent.length = 0;
   ctx.doPost({ postData: { contents: JSON.stringify({ events: [{
@@ -1210,6 +1471,73 @@ section('抜けた人の回答は人数に数えない');
   postback(env, 'a=status', 'Uadmin');
   check('抜けた人を回答済みに数えない',
     lastReplyText(env).includes('回答済み：0人'), lastReplyText(env));
+}
+
+section('userId が変わった名前でも壊れないか');
+{
+  // 名簿シートの userId は人が編集できる
+  const env = newEnv(new RealDate(2026, 7, 15, 9, 0));
+  const { ctx } = env;
+  const odd = [['toString', '山田'], ['__proto__', '佐藤'], ['constructor', '鈴木']];
+
+  ev(env, { type: 'join', replyToken: 'tok', source: { type: 'group', groupId: 'Cgroup' } });
+  odd.forEach(([id, name]) => {
+    env.gas.names[id] = name;
+    ev(env, {
+      type: 'memberJoined', replyToken: 'tok',
+      source: { type: 'group', groupId: 'Cgroup' },
+      joined: { members: [{ type: 'user', userId: id }] }
+    });
+    follow(env, id);
+  });
+
+  check('全員が名簿に載る', ctx.members_().length === 3,
+    JSON.stringify(ctx.members_().map(p => p.userId)));
+
+  startFor(env, '2026-09');
+  postback(env, 'a=part&v=1', 'Uadmin');
+  postback(env, 'a=num&v=3', 'Uadmin');
+  env.gas.sent.length = 0;
+  postback(env, 'a=aok', 'Uadmin');
+  check('全員にカレンダーが届く', pushes(env).length === 3,
+    JSON.stringify(pushes(env).map(x => x.payload.to)));
+
+  const mask = ctx.daysToMask_(ctx.state_().days);
+  odd.forEach(([id]) => postback(env, `a=mok&ym=2026-09&s=${mask}`, id));
+  check('全員の回答が数えられる', ctx.pending_('2026-09').length === 0,
+    JSON.stringify(ctx.pending_('2026-09').map(p => p.userId)));
+  check('集計まで進む', ctx.state_().stage === '確認待ち');
+  const shift = ctx.readShift_('2026-09');
+  check('空欄がない', shift.rows.every(r => r.am), JSON.stringify(shift.rows));
+}
+
+section('当番の日が空のまま集計にたどりついたら');
+{
+  const env = newEnv(new RealDate(2026, 7, 15, 9, 0));
+  const { ctx } = env;
+  joinGroupWith(env, PEOPLE);
+  PEOPLE.forEach(p => follow(env, p.id));
+
+  // 状態シートを手で書き換えて、日が空のまま受付中にしてしまった
+  ctx.saveState_({ ym: '2026-09', stage: '回答受付中', part: '1部制', days: [] });
+  PEOPLE.forEach(p => ctx.appendAnswer_('2026-09', p.id, p.name, []));
+  env.gas.sent.length = 0;
+  postback(env, 'a=status', 'Uadmin');
+  check('空の当番表を作らない', ctx.readShift_('2026-09').rows.length === 0);
+  check('確認待ちに進まない', ctx.state_().stage === '回答受付中');
+}
+
+section('状態シートのセルが化けないか');
+{
+  const env = newEnv(new RealDate(2026, 7, 15, 9, 0));
+  const { ctx } = env;
+  const state = env.gas.book.getSheetByName('状態');
+  const log = env.gas.book.getSheetByName('回答ログ');
+  check('対象年月の欄は文字として扱う', state.getRange(2, 1).getNumberFormat() === '@',
+    state.getRange(2, 1).getNumberFormat());
+  check('当番の日の欄は文字として扱う', state.getRange(2, 4).getNumberFormat() === '@');
+  check('回答ログの対象年月も文字', log.getRange(2, 2).getNumberFormat() === '@');
+  check('回答ログの日付一覧も文字', log.getRange(2, 5).getNumberFormat() === '@');
 }
 
 section('送ったメッセージの形');

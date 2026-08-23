@@ -67,7 +67,7 @@ function msgAskPart_(ym, prefix) {
   ]);
 }
 
-/** 5.3 日数をたずねる */
+/** 5.4 日数をたずねる */
 function msgAskCount_(ym, part, prefix) {
   var lines = [];
   if (prefix) lines.push(prefix);
@@ -79,7 +79,7 @@ function msgAskCount_(ym, part, prefix) {
   ]);
 }
 
-/** 5.4 たたき台のカレンダー */
+/** 5.5 たたき台のカレンダー */
 function msgDraft_(ym, days, isFirst, prefix) {
   var lines = [];
   if (prefix) lines.push(prefix);
@@ -104,12 +104,12 @@ function msgDraft_(ym, days, isFirst, prefix) {
   ]);
 }
 
-/** 5.4 0 日のまま押された */
+/** 5.5 0 日のまま押された */
 function msgNeedOneDay_() {
   return withAdminMenu_([text_('1日以上選んでください。')]);
 }
 
-/** 5.5 日程を確定した */
+/** 5.6 日程を確定した */
 function msgFixed_(ym, days) {
   return withAdminMenu_([
     promptFlex_(ymLabel_(ym) + 'の当番の日を確定しました', [
@@ -234,6 +234,17 @@ function msgPublishFailed_() {
   ]);
 }
 
+/** 7.3 当番表が当番の日とそろっていない */
+function msgNoShift_(ym, wantCount, gotCount) {
+  return withAdminMenu_([
+    promptFlex_('当番表を確かめてください', [
+      ymLabel_(ym) + 'の当番表が、決めた日程とそろっていません。',
+      '決めた日は' + wantCount + '日、表にあるのは' + gotCount + '日です。',
+      '行を消したり「日」の欄を書き換えたりしていないか、表を開いて確かめてください。'
+    ], [postback_('担当を入れ替える（表を開く）', 'a=open')])
+  ]);
+}
+
 /** 7.3 グループが登録されていない */
 function msgNoGroup_() {
   return withAdminMenu_([
@@ -311,7 +322,7 @@ function msgStatusWaiting_(ym, answeredCount, pendingPeople, notAddedPeople, pre
 /** 「Aさん、Bさん」 */
 function withSan_(people) {
   return people.map(function (p) {
-    return (p.name || nameOf_(p.userId)) + 'さん';
+    return (p.name || '名前未取得') + 'さん';
   }).join('、');
 }
 
@@ -326,9 +337,15 @@ function msgConfirmSkip_(ym, pendingPeople, notAddedPeople) {
   }
   lines.push('よろしければもう一度〔この人抜きで進める〕を押してください。');
 
+  // どの月の・何人についての確認だったかをボタンに持たせる。
+  // このカードはトークに残り続けるので、あとから押されたときに
+  // 別の月の人を巻き込まないようにする
+  var data = 'a=skip&c=1&ym=' + ym
+    + '&n=' + pendingPeople.length + '&m=' + notAddedPeople.length;
+
   return withAdminMenu_([
     promptFlex_('この人抜きで進めてよろしいですか？', lines, [
-      postback_('この人抜きで進める', 'a=skip&c=1'),
+      postback_('この人抜きで進める', data),
       postback_('やめる', 'a=status')
     ])
   ]);
@@ -358,6 +375,16 @@ function msgSkipAll_() {
   ]);
 }
 
+/** 8.2 状況を押したところで集計が走った */
+function msgAggregatedNow_(ym) {
+  return withAdminMenu_([
+    promptFlex_('当番表を送りました', [
+      ymLabel_(ym) + 'の当番表ができました。別のメッセージで送っています。',
+      '届いていないときは、もう一度〔状況〕を押してください。'
+    ], [postback_('状況', 'a=status')])
+  ]);
+}
+
 /** 8.2 状況：公開済み */
 function msgStatusPublished_(ym) {
   return withAdminMenu_([
@@ -366,18 +393,18 @@ function msgStatusPublished_(ym) {
   ]);
 }
 
-/** 8.3 進行中に開始を押したときの前置き */
+/** 8.4 進行中に開始を押したときの前置き */
 function alreadyStartedPrefix_(ym) {
   if (!ym) return 'すでに当番づくりを始めています。続きはこちらです。';
   return 'すでに' + ymLabel_(ym) + '分は開始されています。続きはこちらです。';
 }
 
-/** 混み合って順番が回ってこなかった */
+/** 8.6 混み合って順番が回ってこなかった */
 function msgBusy_() {
   return [text_('いま混み合っています。\nもう一度押してください。')];
 }
 
-/** 8.4 中止 */
+/** 8.5 中止 */
 function msgCancelled_() {
   return withAdminMenu_([text_('中止しました。')]);
 }

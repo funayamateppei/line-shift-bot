@@ -4,6 +4,7 @@
  *   ・割り当ては「埋める」「均等」を総当たりの最適と同じところまで満たしているか
  */
 const { load, seeded } = require('./harness');
+const { optimum } = require('./oracle');
 
 const ctx = load(['00_config.gs', '02_dates.gs', '04_plan.gs', '05_assign.gs'], {
   SpreadsheetApp: {},
@@ -273,6 +274,101 @@ section('担当回数の差が最小になるか（別の考え方で検算）')
   }
   console.log(`    ${cases} 通り`);
   check('担当回数の差が最小', bad === 0, `${bad} 件  例=${JSON.stringify(example)}`);
+
+  // 検算器そのものの検算。考え方の違う 2 つが同じ答えを出すか
+  let mismatch = 0;
+  for (let iter = 0; iter < 400; iter++) {
+    const rnd = seeded(iter * 977);
+    const members = ['A', 'B', 'C'];
+    const workDays = [1, 2, 3, 4];
+    const availability = {};
+    members.forEach(u => { availability[u] = workDays.filter(() => rnd() < 0.5); });
+    for (const twoPart of [false, true]) {
+      if (bestSpread(workDays, twoPart, availability, members)
+        !== optimum(workDays, twoPart, availability, members).spread) mismatch++;
+    }
+  }
+  check('2 つの検算器が同じ答えを出す', mismatch === 0, `${mismatch} 件`);
+}
+
+section('本番の大きさでも最適か（流量で検算）');
+{
+  // 担当回数の全列挙は 4 人 6 日が限界で、玉突きが 3 を超える場面に届かない。
+  // 流量で解く検算器なら 31 日 20 人でも最適が出せる。
+  const check1 = (rows, members, availability, workDays, twoPart, label) => {
+    const load = {}; members.forEach(u => (load[u] = 0));
+    let fill = 0, illegal = 0, dup = 0;
+    rows.forEach(r => {
+      if (twoPart && r.am && r.pm && r.am === r.pm) dup++;
+      [r.am, r.pm].forEach(u => {
+        if (!u) return;
+        load[u]++; fill++;
+        if (!(availability[u] || []).includes(r.day)) illegal++;
+      });
+    });
+    const v = members.map(u => load[u]);
+    const want = optimum(workDays, twoPart, availability, members);
+    check('出られない日に入っていない', illegal === 0, label);
+    check('同じ日に二重で入っていない', dup === 0, label);
+    check('埋め残しがない', fill === want.fill, `${label} ${fill} ≠ ${want.fill}`);
+    check('担当回数の差が最小', Math.max(...v) - Math.min(...v) === want.spread,
+      `${label} ${Math.max(...v) - Math.min(...v)} ≠ ${want.spread}`);
+  };
+
+  let cases = 0;
+  for (const nMembers of [3, 6, 12, 20]) {
+    const members = [...Array(nMembers).keys()].map(i => 'U' + i);
+    for (const nDays of [4, 12, 31]) {
+      const workDays = [...Array(nDays).keys()].map(i => i + 1);
+      for (const dense of [0.15, 0.4, 0.8]) {
+        for (const twoPart of [false, true]) {
+          for (let iter = 0; iter < 12; iter++) {
+            const rnd = seeded(iter * 7919 + nMembers * 131 + nDays * 17 + dense * 1000);
+            const availability = {};
+            members.forEach(u => { availability[u] = workDays.filter(() => rnd() < dense); });
+            const rows = ctx.buildShift_(workDays, twoPart, availability, members, seeded(iter + 1));
+            check1(rows, members, availability, workDays, twoPart,
+              `${nMembers}人 ${nDays}日 ${twoPart ? '2部' : '1部'}`);
+            cases++;
+          }
+        }
+      }
+    }
+  }
+
+  // はしご形。人 i が日 i と日 i+1 だけ出られる。玉突きが長く伸びる
+  for (let n = 4; n <= 16; n++) {
+    const members = [...Array(n).keys()].map(i => 'U' + i);
+    const workDays = [...Array(n).keys()].map(i => i + 1);
+    const availability = {};
+    members.forEach((u, i) => { availability[u] = [i + 1, ((i + 1) % n) + 1]; });
+    for (const twoPart of [false, true]) {
+      for (let seed = 1; seed <= 20; seed++) {
+        const rows = ctx.buildShift_(workDays, twoPart, availability, members, seeded(seed * 31 + n));
+        check1(rows, members, availability, workDays, twoPart, `はしご ${n}人`);
+        cases++;
+      }
+    }
+  }
+  // 人数と日数がそろっていないと玉突きが伸びやすい。まばらな形も広く試す
+  for (let iter = 0; iter < 900; iter++) {
+    const rnd = seeded(iter * 6151 + 13);
+    const nMembers = 3 + Math.floor(rnd() * 10);
+    const nDays = 3 + Math.floor(rnd() * 20);
+    const members = [...Array(nMembers).keys()].map(i => 'U' + i);
+    const workDays = [...Array(nDays).keys()].map(i => i + 1);
+    const dense = 0.1 + rnd() * 0.5;
+    const availability = {};
+    members.forEach(u => {
+      availability[u] = workDays.filter(() => rnd() < dense);
+    });
+    const twoPart = rnd() < 0.5;
+    const rows = ctx.buildShift_(workDays, twoPart, availability, members, seeded(iter + 3));
+    check1(rows, members, availability, workDays, twoPart, `無作為 ${iter}`);
+    cases++;
+  }
+
+  console.log(`    ${cases} 通り`);
 }
 
 section('重い条件でも止まるか');
@@ -291,6 +387,25 @@ section('重い条件でも止まるか');
   }
   check('受け渡しが打ち切りに達しない', maxSteps < 5000, `最大 ${maxSteps} 回`);
   console.log(`    受け渡しの最大回数 ${maxSteps} 回`);
+}
+
+section('userId が変わった名前でも壊れないか');
+{
+  // 名簿シートの userId は人が編集できる
+  const members = ['toString', 'constructor', 'valueOf', 'hasOwnProperty', '__proto__', 'U1'];
+  const workDays = [1, 2, 3, 4, 5, 6];
+  const availability = {};
+  members.forEach(u => { availability[u] = workDays.slice(); });
+  const rows = ctx.buildShift_(workDays, true, availability, members, seeded(7));
+  // 数えるほうも素の {} だと __proto__ を取りこぼすので Map を使う
+  const load = new Map(members.map(u => [u, 0]));
+  rows.forEach(r => {
+    if (r.am) load.set(r.am, load.get(r.am) + 1);
+    if (r.pm) load.set(r.pm, load.get(r.pm) + 1);
+  });
+  const v = members.map(u => load.get(u));
+  check('全員に当番が入る', v.every(n => n > 0), JSON.stringify([...load]));
+  check('担当回数の差が最小', Math.max(...v) - Math.min(...v) === 0, JSON.stringify([...load]));
 }
 
 section('同じ日が重なって書かれていても壊れないか');

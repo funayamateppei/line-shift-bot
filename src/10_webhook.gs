@@ -34,19 +34,40 @@ function doPost(e) {
  */
 function withLock_(events, fn) {
   var lock = LockService.getScriptLock();
-  if (!lock.tryLock(20000)) {
-    log_('ほかの処理が動いているため見送りました');
-    events.forEach(function (ev) {
-      if (ev.type === 'postback' && ev.replyToken) reply_(ev.replyToken, msgBusy_());
-    });
+  if (lock.tryLock(20000)) {
+    try {
+      fn();
+    } finally {
+      lock.releaseLock();
+    }
     return;
   }
-  try {
-    fn();
-  } finally {
-    lock.releaseLock();
-  }
+
+  log_('ほかの処理が動いているため見送りました');
+  events.forEach(function (ev) {
+    // 名簿を書くだけのイベントは捨てない。
+    // 捨てるとその人が名簿に載らず、未追加のまま集計を止め続ける。
+    // 同じ人の行を上書きするだけなので、重なっても壊れない
+    if (ROSTER_EVENTS[ev.type]) {
+      try {
+        handleEvent_(ev);
+      } catch (err) {
+        logError_(err);
+      }
+      return;
+    }
+    if (ev.type === 'postback' && ev.replyToken) reply_(ev.replyToken, msgBusy_());
+  });
 }
+
+/** 名簿を書くだけのイベント */
+var ROSTER_EVENTS = {
+  follow: true,
+  unfollow: true,
+  join: true,
+  memberJoined: true,
+  memberLeft: true
+};
 
 function handleEvent_(ev) {
   switch (ev.type) {
@@ -146,7 +167,7 @@ function onPostback_(ev) {
     case 'start':   return onStart_(ev.replyToken);
     case 'status':  return onStatus_(ev.replyToken);
     case 'cancel':  return onCancel_(ev.replyToken);
-    case 'skip':    return onSkipNotAdded_(ev.replyToken, data.c === '1');
+    case 'skip':    return onSkipNotAdded_(ev.replyToken, data);
     case 'ym':      return onPickMonth_(ev.replyToken, data.v);
     case 'part':    return onPart_(ev.replyToken, data.v);
     case 'num':     return onCount_(ev.replyToken, data.v);

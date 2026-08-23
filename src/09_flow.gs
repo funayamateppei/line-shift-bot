@@ -6,7 +6,7 @@
 
 // ---------------------------------------------------------------- 管理者
 
-/** 8.3 開始。進行中ならその段階のカードを出しなおす */
+/** 8.4 開始。進行中ならその段階のカードを出しなおす */
 function onStart_(replyToken) {
   var st = state_();
 
@@ -44,7 +44,7 @@ function onStart_(replyToken) {
 }
 
 /**
- * 5.2 何月分を作るかを選んだ。
+ * 5.3 何月分を作るかを選んだ。
  * 押した瞬間の翌月を機械が決めると、公開した直後に押したときに同じ月をもう一度
  * 始めてしまったり、お知らせを遅れて押したときに月が飛んだりする。管理者に選ばせる。
  */
@@ -63,7 +63,7 @@ function onPickMonth_(replyToken, value) {
   saveState_({ ym: value, stage: STAGE.部制待ち, part: '', days: [] });
 }
 
-/** 5.3 部制を選んだ */
+/** 5.4 部制を選んだ */
 function onPart_(replyToken, value) {
   var st = state_();
   if (st.stage !== STAGE.部制待ち) { onStart_(replyToken); return; }
@@ -73,7 +73,7 @@ function onPart_(replyToken, value) {
   saveState_({ ym: st.ym, stage: STAGE.日数待ち, part: part, days: [] });
 }
 
-/** 5.4 日数を選んだ。たたき台を出す */
+/** 5.5 日数を選んだ。たたき台を出す */
 function onCount_(replyToken, value) {
   var st = state_();
   if (st.stage !== STAGE.日数待ち) { onStart_(replyToken); return; }
@@ -87,7 +87,7 @@ function onCount_(replyToken, value) {
 }
 
 /**
- * 5.4 たたき台の日付を押した。
+ * 5.5 たたき台の日付を押した。
  * 編集の途中を〔開始〕でたどり直せるように、選んでいる日はその都度残す。
  * メンバーには何も送らない。
  */
@@ -108,7 +108,7 @@ function onAdminToggle_(replyToken, day) {
   saveState_({ ym: st.ym, stage: STAGE.日程編集中, part: st.part, days: days });
 }
 
-/** 5.5 この日程でOK。ここで初めてメンバーへ送る */
+/** 5.6 この日程でOK。ここで初めてメンバーへ送る */
 function onFixDays_(replyToken) {
   var st = state_();
   if (st.stage !== STAGE.日程編集中) { onStart_(replyToken); return; }
@@ -151,8 +151,11 @@ function onStatus_(replyToken) {
 
   // 送信に失敗するなどで集計のきっかけを取りこぼしていた場合の受け皿。
   // ここで集計が走ったら、当番表は集計のなかで送られている。
-  // 段階が「確認待ち」に変わるので、そのまま下へ進むと同じ表をもう一度返してしまう
-  if (st.stage === STAGE.回答受付中 && maybeAggregate_()) return;
+  // そのまま下へ進むと段階が「確認待ち」になっていて、同じ表をもう一度返してしまう
+  if (st.stage === STAGE.回答受付中 && maybeAggregate_()) {
+    reply_(replyToken, msgAggregatedNow_(st.ym));
+    return;
+  }
 
   st = state_();
   switch (st.stage) {
@@ -187,7 +190,7 @@ function statusWaitingMessages_(ym, prefix) {
 }
 
 /**
- * 8.4 中止。
+ * 8.5 中止。
  * その月の回答も消す。消さないと、同じ月をやり直したときに前回の回答が
  * 「回答済み」として数えられ、誰か 1 人の確定で集計が走ってしまう。
  */
@@ -210,7 +213,7 @@ function onCancel_(replyToken) {
  *              ので、翌月はまた普通にカレンダーが届く
  * 未追加の人 … 名簿から外す。友だち追加し直せばまた入る
  */
-function onSkipNotAdded_(replyToken, confirmed) {
+function onSkipNotAdded_(replyToken, data) {
   var st = state_();
   if (st.stage !== STAGE.回答受付中) { onStatus_(replyToken); return; }
 
@@ -218,17 +221,29 @@ function onSkipNotAdded_(replyToken, confirmed) {
   var missing = notAdded_();
   if (!waiting.length && !missing.length) { onStatus_(replyToken); return; }
 
-  // 進めたあとに誰も残らないなら、当番表が作れないので押させない
-  var left = members_().length - waiting.length;
-  if (left < 1) { reply_(replyToken, msgSkipAll_()); return; }
+  // 進めたあとに当番を任せられる人が残らないなら押させない。
+  // 「都合がつく日なし」で答えた人は残っても割り当てられないので数に入れない
+  var answers = answersFor_(st.ym);
+  var usable = members_().filter(function (p) {
+    return (answers[p.userId] || []).length > 0;
+  }).length;
+  if (usable < 1) { reply_(replyToken, msgSkipAll_()); return; }
 
-  if (!confirmed) {
+  // 確認したときと顔ぶれが変わっていたら、もう一度たずねる。
+  // 古いカードを別の月で押されたときや、確認のあいだに誰かが友だち追加した
+  // ときに、カードに書いていない人を巻き込まないため
+  var sameAsAsked = data.c === '1'
+    && data.ym === st.ym
+    && String(waiting.length) === String(data.n)
+    && String(missing.length) === String(data.m);
+
+  if (!sameAsAsked) {
     reply_(replyToken, msgConfirmSkip_(st.ym, waiting, missing));
     return;
   }
 
   waiting.forEach(function (p) {
-    appendAnswer_(st.ym, p.userId, p.name || nameOf_(p.userId), []);
+    appendAnswer_(st.ym, p.userId, p.name || '', []);
   });
   missing.forEach(function (p) { rosterUpsert_(p.userId, { inGroup: false }); });
 
@@ -254,7 +269,15 @@ function onPublish_(replyToken) {
   var s = settings_();
   if (!s.groupId) { reply_(replyToken, msgNoGroup_()); return; }
 
+  // 表が壊れたまま送ると、見出しだけや 9/NaN の混じった表がグループに届いて
+  // しかも公開済みになってしまう。当番の日とそろっているか確かめる
   var shift = readShift_(st.ym);
+  var days = shift.rows.map(function (r) { return r.day; });
+  if (joinDays_(days) !== joinDays_(st.days)) {
+    reply_(replyToken, msgNoShift_(st.ym, st.days.length, days.length));
+    return;
+  }
+
   if (!push_(s.groupId, msgPublish_(st.ym, shift.part || st.part, shift.rows))) {
     reply_(replyToken, msgPublishFailed_());
     return;
@@ -266,7 +289,7 @@ function onPublish_(replyToken) {
 
 // ---------------------------------------------------------------- メンバー
 
-/** 6.1 カレンダーの日付を押した。押しただけでは保存しない */
+/** 6.2 カレンダーの日付を押した。押しただけでは保存しない */
 function onMemberToggle_(replyToken, ym, mask, day) {
   var st = state_();
   if (st.stage !== STAGE.回答受付中 || st.ym !== ym) {
@@ -323,18 +346,19 @@ function maybeAggregate_() {
 
 /** 割り当てて、シートに書いて、管理者に送る */
 function aggregate_(st) {
+  if (!st.days.length) return;
+
   var people = members_();
   var answers = answersFor_(st.ym);
   var ids = people.map(function (p) { return p.userId; });
 
-  var availability = {};
+  var availability = Object.create(null);
   ids.forEach(function (id) { availability[id] = answers[id] || []; });
 
   var isTwoPart = st.part === PART.二部;
   var assigned = buildShift_(st.days, isTwoPart, availability, ids);
 
-  var nameById = {};
-  people.forEach(function (p) { nameById[p.userId] = p.name || nameOf_(p.userId); });
+  var nameById = displayNames_(people);
 
   var rows = assigned.map(function (r) {
     var cands = ids
@@ -358,6 +382,25 @@ function aggregate_(st) {
 
   var s = settings_();
   if (s.adminId) push_(s.adminId, msgShift_(st.ym, st.part, rows, '全員の回答がそろいました。'));
+}
+
+/**
+ * 当番表に書く名前を決める。
+ *
+ * 同じ表示名の人が複数いると、表を見ても誰が誰だか分からず、
+ * 「午前と午後が同じ人」の警告も誤って出る。区別できるよう後ろに番号を付ける。
+ * 表示名が取れていない人は、LINE の userId を出さずに済ませる。
+ */
+function displayNames_(people) {
+  var seen = Object.create(null);
+  var out = Object.create(null);
+
+  people.forEach(function (p) {
+    var name = p.name || '名前未取得';
+    seen[name] = (seen[name] || 0) + 1;
+    out[p.userId] = seen[name] === 1 ? name : name + '(' + seen[name] + ')';
+  });
+  return out;
 }
 
 /** 確認待ちのときに当番表をもう一度出す */

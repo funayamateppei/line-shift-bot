@@ -70,19 +70,20 @@ run 09_flow.gs '  if (!push_(s.groupId, msgPublish_(st.ym, shift.part || st.part
     return;
   }' '送れなくても「送りました」と返す'
 run 09_flow.gs '  missing.forEach(function (p) { rosterUpsert_(p.userId, { inGroup: false }); });' '' '未追加の人を外さない'
-run 09_flow.gs '  waiting.forEach(function (p) {
-    appendAnswer_(st.ym, p.userId, p.name || nameOf_(p.userId), []);
-  });' '' '未回答の人を都合がつく日なしにしない'
-run 09_flow.gs '  if (!confirmed) {
+run 09_flow.gs "    appendAnswer_(st.ym, p.userId, p.name || '', []);" '' '未回答の人を都合がつく日なしにしない'
+run 09_flow.gs '  if (!sameAsAsked) {
     reply_(replyToken, msgConfirmSkip_(st.ym, waiting, missing));
     return;
   }' '' '外す前に聞き返さない'
-run 09_flow.gs '  if (left < 1) { reply_(replyToken, msgSkipAll_()); return; }' '' '全員いなくなっても進める'
-run 09_flow.gs '  if (st.stage === STAGE.回答受付中 && maybeAggregate_()) return;' '' '状況で集計を見直さない'
-run 09_flow.gs '  if (st.stage === STAGE.回答受付中 && maybeAggregate_()) return;' '  if (st.stage === STAGE.回答受付中) maybeAggregate_();' '状況で集計したときに当番表を二重に届ける'
+run 09_flow.gs '  if (usable < 1) { reply_(replyToken, msgSkipAll_()); return; }' '' '全員いなくなっても進める'
+run 09_flow.gs '  if (st.stage === STAGE.回答受付中 && maybeAggregate_()) {' '  if (false) {' '状況で集計を見直さない'
+run 09_flow.gs '    reply_(replyToken, msgAggregatedNow_(st.ym));
+    return;
+  }' '    reply_(replyToken, msgAggregatedNow_(st.ym));
+  }' '状況で集計したときに当番表を二重に届ける'
 run 09_flow.gs "      reply_(replyToken, shiftMessages_(st.ym, '当番表を確認中です。'));" "      reply_(replyToken, withAdminMenu_([text_('当番表を確認中です。')]));" '状況で当番表そのものを返さない'
 run 10_webhook.gs "    case 'ym':      return onPickMonth_(ev.replyToken, data.v);" '' '対象月のボタンを効かなくする'
-run 10_webhook.gs "    case 'skip':    return onSkipNotAdded_(ev.replyToken, data.c === '1');" '' 'この人抜きで進めるボタンを効かなくする'
+run 10_webhook.gs "    case 'skip':    return onSkipNotAdded_(ev.replyToken, data);" '' 'この人抜きで進めるボタンを効かなくする'
 run 10_webhook.gs '  // この人が最後の未追加者だったなら、これでそろう
   maybeAggregate_();' '' '友だち追加でそろっても集計しない'
 run 06_line.gs '  return isOk_(res);' '  return true;' '送信の失敗を無視する'
@@ -108,14 +109,14 @@ run 09_flow.gs '    default:
       clearState_();
       onStart_(replyToken);' '' '知らない段階のときに黙り込む'
 run 08_messages.gs "  return people.map(function (p) {
-    return (p.name || nameOf_(p.userId)) + 'さん';
+    return (p.name || '名前未取得') + 'さん';
   }).join('、');" "  return nameList_(people) + 'さん';" '外した人の名前をまとめて「さん」にする'
 run 08_messages.gs "  lines.push('この先ずっと外したいときは、名簿シートでその人の行を削除してください。');" '' 'ずっと外す方法を案内しない'
 run 10_webhook.gs '    if (name) names.push(name);   // 名前が取れなかった人は並べない' '    names.push(name);' '名前が取れない人も並べる'
 
 echo '--- 3 回目のレビューで直したところ'
 run 06_line.gs '  return res.code >= 200 && res.code < 300;' '  return res.code < 300;' 'つながらないのを成功と数える'
-run 10_webhook.gs "      if (ev.type === 'postback' && ev.replyToken) reply_(ev.replyToken, msgBusy_());" '      if (ev.replyToken) reply_(ev.replyToken, msgBusy_());' '順番待ちの返事を全部のイベントに返す'
+run 10_webhook.gs "    if (ev.type === 'postback' && ev.replyToken) reply_(ev.replyToken, msgBusy_());" '    if (ev.replyToken) reply_(ev.replyToken, msgBusy_());' '順番待ちの返事を全部のイベントに返す'
 run 03_store.gs '  var need = start + values.length - 1;
   if (sh.getMaxRows() < need) sh.insertRowsAfter(sh.getMaxRows(), need - sh.getMaxRows());' '' '行が減ったシートに足さずに書く'
 run 09_flow.gs "  if (monthChoices_(new Date()).indexOf(String(value || '')) < 0) {" "  if (String(value || '').length !== 7) {" '対象月を選択肢と照合しない'
@@ -128,6 +129,38 @@ run 09_flow.gs '  var count = members_().filter(function (p) {
   }).length;' '  var count = Object.keys(answered).length;' '抜けた人も回答済みに数える'
 run 09_flow.gs "  var target = (st.stage === STAGE.回答受付中 || st.stage === STAGE.確認待ち) ? st.ym : '';" '  var target = st.ym;' '公開した月の記録も中止で消す'
 run 09_flow.gs '  if (!s.groupId) { reply_(replyToken, msgNoGroup_()); return; }' '' 'グループ未登録と送信失敗を同じ扱いにする'
+
+echo '--- 4 回目のレビューで直したところ'
+run 09_flow.gs "  var sameAsAsked = data.c === '1'
+    && data.ym === st.ym
+    && String(waiting.length) === String(data.n)
+    && String(missing.length) === String(data.m);" "  var sameAsAsked = data.c === '1';" '古いカードを別の月で押しても実行する'
+run 09_flow.gs '  var usable = members_().filter(function (p) {
+    return (answers[p.userId] || []).length > 0;
+  }).length;' '  var usable = members_().length - waiting.length;' '全員が都合がつく日なしでも進める'
+run 09_flow.gs '    reply_(replyToken, msgAggregatedNow_(st.ym));
+    return;' '    return;' '状況で集計したときに何も返さない'
+run 10_webhook.gs '    if (ROSTER_EVENTS[ev.type]) {
+      try {
+        handleEvent_(ev);
+      } catch (err) {
+        logError_(err);
+      }
+      return;
+    }' '' '順番待ちが切れたら名簿のイベントも捨てる'
+run 03_store.gs '    if (!r.cands.length) { rules.push([null, null]); return; }' '' '候補がいない日にも空だけのプルダウンを置く'
+
+echo '--- 5 回目のレビューで直したところ'
+run 03_store.gs '  var byId = Object.create(null);' '  var byId = {};' '名簿の入れ物を素の {} に戻す'
+run 03_store.gs '  var out = Object.create(null);' '  var out = {};' '回答の入れ物を素の {} に戻す'
+run 03_store.gs '    if (isNaN(Number(day))) continue;' '' '数にならない「日」も読む'
+run 03_store.gs "  return p && p.name ? p.name : '';" '  return String(userId || "").slice(0, 8);' '名前がないとき userId の断片を返す'
+run 09_flow.gs '  var days = shift.rows.map(function (r) { return r.day; });
+  if (joinDays_(days) !== joinDays_(st.days)) {' '  var days = shift.rows.map(function (r) { return r.day; });
+  if (false) {' '当番表が日程とそろっていなくても送る'
+run 09_flow.gs '  var nameById = displayNames_(people);' "  var nameById = {}; people.forEach(function (p) { nameById[p.userId] = p.name || ''; });" '同じ表示名の人を区別しない'
+run 09_flow.gs '  if (!st.days.length) return;' '' '当番の日が空でも集計する'
+run 01_setup.gs "  sh.getRange(2, 1, 1, 4).setNumberFormat('@');" '' '状態シートを文字として扱わない'
 
 echo '--- 均等化'
 run 05_assign.gs '    if (ctx.load[from] - min < 2) break;   // ここから先はどう渡しても縮まらない

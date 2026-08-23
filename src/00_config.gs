@@ -5,10 +5,13 @@
  * 締切日）は「設定」シートに置く。シートを直せば再デプロイなしで反映される。
  */
 
-// ===== ここだけ書き換える =====
-var SPREADSHEET_ID = '1VMJ8pT4M0pJFaTXZ4bOWr2BrpqJhlOQV9-S1b5BXtf0';
+// ===== ここだけ書き換える（空のまま置いてあります）=====
+// SPREADSHEET_ID       スプレッドシートの URL の /d/ と /edit の間
+// CHANNEL_ACCESS_TOKEN LINE Developers → Messaging API 設定 →
+//                      チャネルアクセストークン（長期）を発行
+var SPREADSHEET_ID = '';
 var CHANNEL_ACCESS_TOKEN = '';
-// =============================
+// =====================================================
 
 var TZ = 'Asia/Tokyo';
 

@@ -2,7 +2,7 @@
  * src/ の .gs を 1 枚にまとめて dist/コード.gs に書き出す。
  *
  * GAS のエディタにはフォルダを置けず、ファイルは 1 枚ずつ手で作ることになる。
- * 渡す相手に 12 回貼らせないための束ね役。
+ * 12 回貼らせないための束ね役。dist は Git に入れていない（src から作れる）。
  *
  *   node tools/bundle.js          書き出す
  *   node tools/bundle.js --check  中身がいまの src/ と一致するか見るだけ
@@ -38,8 +38,12 @@ function build() {
 const made = build();
 
 if (process.argv.indexOf('--check') >= 0) {
-  const now = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf8') : '';
-  if (now !== made) {
+  // dist は Git に入れていない。まだ作っていないだけなら落とさない
+  if (!fs.existsSync(OUT)) {
+    console.log('dist/コード.gs はまだありません（node tools/bundle.js で作れます）');
+    process.exit(0);
+  }
+  if (fs.readFileSync(OUT, 'utf8') !== made) {
     console.error('dist/コード.gs が src/ より古いです。node tools/bundle.js を実行してください。');
     process.exit(1);
   }

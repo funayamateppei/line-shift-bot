@@ -29,6 +29,33 @@ LINE の通数は「送った相手の人数」で数える（グループに 1 
 - **担当は貪欲法＋玉突きで均す**。総当たり・動的計画法・下限つき流量の 3 通りで検算し、コードをわざと壊して落ちるかも確かめている（73 か所すべて検知）
 - **無料アカウントではグループのメンバー一覧を取れない**（`403`）。そのため、友だち追加・グループ参加・グループでの発言を手がかりに名簿を組み立てる
 
+## GAS に貼るコードを作る
+
+GAS のエディタにはフォルダを置けないので、`src/` の 12 ファイルを 1 枚にまとめる。
+
+```sh
+node tools/bundle.js          # dist/コード.gs を作る
+node tools/bundle.js --check  # src/ とずれていないか見る
+```
+
+できた `dist/コード.gs` を GAS の `コード.gs` にまるごと貼り、**先頭の 2 行を自分の値に書き換える**。
+
+```js
+var SPREADSHEET_ID = '';       // スプレッドシートの URL の /d/ と /edit の間
+var CHANNEL_ACCESS_TOKEN = ''; // LINE Developers → Messaging API 設定 → チャネルアクセストークン（長期）
+```
+
+`dist/` は Git に入れていない。`src/` から作れるものなので、貼る直前に生成する。
+
+## テスト
+
+```sh
+node test/logic.test.js   # 当番の日と割り当てを 3 通りの方法で検算
+node test/e2e.test.js     # 導入から公開までを通しで動かす
+node test/bundle.test.js  # dist が src とずれていないか
+bash test/mutation.sh     # コードをわざと壊してテストが落ちるか
+```
+
 ## 文書
 
 - [仕様](docs/design.md)

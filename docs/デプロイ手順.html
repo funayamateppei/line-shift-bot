@@ -113,6 +113,7 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:24px}
 <pre>https://docs.google.com/spreadsheets/d/<strong>ここが ID</strong>/edit</pre></li>
 </ol>
 <p>タブは Bot が自動で作るので、何もしなくてよい。</p>
+<div class="important"><strong>必ず新しい空のシートを使ってください。</strong> 手順 3 の <code>setup()</code> は「既にあるタブは作り直さない」作りです。以前に使ったシートを指定すると、タブが揃っているとみなして<strong>成功と出たまま 1 セルも変わりません</strong>。作り直したいときは、5 つのタブを削除して空のタブを 1 枚だけ残してから実行してください。</div>
 </section>
 
 <section id="s3">
@@ -121,9 +122,11 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:24px}
 <ol>
 <li><a href="https://script.google.com/">https://script.google.com/</a> で「新しいプロジェクト」</li>
 <li>プロジェクト名を付ける（例：当番Bot）</li>
-<li>既定の <code>コード.gs</code> の中身を消して、このリポジトリの <code>dist/コード.gs</code> を<strong>まるごと貼り付ける</strong>
-  <ul><li>GAS のエディタにはフォルダを置けないので、12 ファイルを 1 枚にまとめてあります。貼るのは 1 回だけ</li><li><code>appsscript.json</code> は <span class="ui">プロジェクトの設定</span> → 「appsscript.json をエディタで表示」をオンにしてから、リポジトリの <code>src/appsscript.json</code> の中身を貼る</li></ul></li>
-<li>貼ったコードの先頭にある 2 つの値を書き換える
+<li>リポジトリで <code>node tools/bundle.js</code> を実行して <code>dist/コード.gs</code> を作る
+  <ul><li>GAS のエディタにはフォルダを置けないので、<code>src/</code> の 12 ファイルを 1 枚にまとめます</li></ul></li>
+<li>既定の <code>コード.gs</code> の中身を消して、できた <code>dist/コード.gs</code> を<strong>まるごと貼り付ける</strong>
+  <ul><li>貼るのは 1 回だけ</li><li><code>appsscript.json</code> は <span class="ui">プロジェクトの設定</span> → 「appsscript.json をエディタで表示」をオンにしてから、リポジトリの <code>src/appsscript.json</code> の中身を貼る</li></ul></li>
+<li>貼ったコードの先頭にある 2 つの値を<strong>自分のものに書き換える</strong>（空で置いてあります）
 <pre>var SPREADSHEET_ID = '（<span class="keep">スプレッドシート ID</span>）';
 var CHANNEL_ACCESS_TOKEN = '（<span class="keep">チャネルアクセストークン</span>）';</pre></li>
 <li>エディタ上部の関数選択で <code>setup</code> を選び <span class="ui">実行</span>
@@ -152,7 +155,8 @@ var CHANNEL_ACCESS_TOKEN = '（<span class="keep">チャネルアクセストー
 <p class="lead">LINE に GAS の URL を教える</p>
 <ol>
 <li>LINE Developers のチャネル → <span class="ui">Messaging API 設定</span> → <strong>Webhook設定</strong></li>
-<li><strong>Webhook URL</strong> に <span class="keep">ウェブアプリ URL</span> を貼って「更新」</li>
+<li><strong>Webhook URL</strong> に <span class="keep">ウェブアプリ URL</span> を貼って「更新」
+  <div class="note">Official Account Manager の <span class="ui">設定</span> → <span class="ui">Messaging API</span> にも同じ Webhook URL の欄があります。<strong>どちらも同じ設定</strong>で、片方に入れればもう片方にも入ります。ただし<strong>すぐには表示に反映されません</strong>。空に見えたらページをリロードしてください（「検証」ボタンは LINE Developers 側にしかありません）。</div></li>
 <li>「Webhook の利用」を <strong>オン</strong></li>
 <li>Official Account Manager の <span class="ui">設定</span> → <span class="ui">応答設定</span> に戻り、<strong>Webhook</strong> を <strong>オン</strong>にする</li>
 </ol>

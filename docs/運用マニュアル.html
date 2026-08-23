@@ -74,7 +74,11 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:24px}
 <h3>1-2. 新しく入る人</h3>
 <p>グループに入ると Bot が「友だち追加してください」と声をかけます。その人にも追加してもらってください。</p>
 
-<h3>1-3. 休む人・辞める人</h3>
+<h3>1-3. 管理者のメニュー</h3>
+<p>Bot からの返事の下に <span class="btn">開始</span> <span class="btn">状況</span> <span class="btn">中止</span> が並びます。これがメニューです。いつでも押せます。</p>
+<div class="note">メニューが見当たらないときは、Bot に何か一言送ってください。いまの状況とメニューが返ってきます。</div>
+
+<h3>1-4. 休む人・辞める人</h3>
 <p><strong>グループを抜けてもらってください。</strong> 抜けた人には以後、当番の相談が届きません。</p>
 <div class="note">Bot をブロックしても意味はありません。グループにいる限り名前が挙がります。</div>
 </section>
@@ -149,6 +153,7 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:24px}
 <tr><td>何をすればいいかわからなくなった</td><td><span class="btn">開始</span> を押す。「すでに開始されています。続きはこちらです。」と、いまやるべき画面が出る</td></tr>
 <tr><td>日程を間違えて <span class="btn">この日程でOK</span> を押した</td><td><span class="btn">中止</span> → <span class="btn">開始</span> からやり直す。メンバーには新しいカレンダーが届く</td></tr>
 <tr><td>メンバーが「カレンダーが来ない」と言う</td><td>Bot を友だち追加しているか確認。<span class="btn">状況</span> の「未追加」に名前があれば未追加</td></tr>
+<tr><td>メンバーがカレンダーを消してしまった</td><td>その人が Bot に何か一言送れば、カレンダーが出しなおされる</td></tr>
 <tr><td>メンバーが回答を間違えた</td><td>集計前なら、もう一度カレンダーで選んで <span class="btn">確定</span> すれば上書きされる。集計後は管理者が表で直す</td></tr>
 <tr><td>当番表を送ったあとに変えたい</td><td>スプレッドシートを直して、グループには自分で連絡する（Bot は送り直さない）</td></tr>
 <tr><td>15 日の連絡が来なかった</td><td><span class="btn">開始</span> を押せばいつでも始められる。連絡はあくまで忘れ防止</td></tr>

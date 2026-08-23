@@ -78,7 +78,8 @@ run 09_flow.gs '  if (!confirmed) {
     return;
   }' '' '外す前に聞き返さない'
 run 09_flow.gs '  if (left < 1) { reply_(replyToken, msgSkipAll_()); return; }' '' '全員いなくなっても進める'
-run 09_flow.gs '  if (st.stage === STAGE.回答受付中) maybeAggregate_();' '' '状況で集計を見直さない'
+run 09_flow.gs '  if (st.stage === STAGE.回答受付中 && maybeAggregate_()) return;' '' '状況で集計を見直さない'
+run 09_flow.gs '  if (st.stage === STAGE.回答受付中 && maybeAggregate_()) return;' '  if (st.stage === STAGE.回答受付中) maybeAggregate_();' '状況で集計したときに当番表を二重に届ける'
 run 09_flow.gs "      reply_(replyToken, shiftMessages_(st.ym, '当番表を確認中です。'));" "      reply_(replyToken, withAdminMenu_([text_('当番表を確認中です。')]));" '状況で当番表そのものを返さない'
 run 10_webhook.gs "    case 'ym':      return onPickMonth_(ev.replyToken, data.v);" '' '対象月のボタンを効かなくする'
 run 10_webhook.gs "    case 'skip':    return onSkipNotAdded_(ev.replyToken, data.c === '1');" '' 'この人抜きで進めるボタンを効かなくする'

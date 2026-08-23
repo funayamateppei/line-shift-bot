@@ -815,7 +815,18 @@ section('状況で集計を見直す');
   env.gas.sent.length = 0;
   postback(env, 'a=status', 'Uadmin');
   check('状況を押すと集計する', ctx.state_().stage === '確認待ち');
-  check('その場で当番表を返す', lastReplyText(env).includes('2026年9月の当番表です。'));
+
+  // 集計のなかで当番表が push される。ここで返事もすると同じ表が 2 度届く
+  const tables = env.gas.sent.filter(
+    s => flatten(s.payload.messages).includes('2026年9月の当番表です。'));
+  check('当番表は 1 度だけ届く', tables.length === 1,
+    tables.map(t => t.url.split('/').pop()).join(' と '));
+  check('届くのは push のほう', tables[0] && tables[0].url.endsWith('/message/push'));
+
+  // もう一度押せば、こんどは表が返ってくる
+  env.gas.sent.length = 0;
+  postback(env, 'a=status', 'Uadmin');
+  check('押し直せば当番表を取り出せる', lastReplyText(env).includes('2026年9月の当番表です。'));
 }
 
 section('名簿に同じ人が二重に載っていても');

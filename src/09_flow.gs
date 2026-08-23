@@ -150,9 +150,9 @@ function onStatus_(replyToken) {
   var st = state_();
 
   // 送信に失敗するなどで集計のきっかけを取りこぼしていた場合の受け皿。
-  // 条件がそろっていればここで集計する。当番表は集計のなかで送るので、
-  // ここで返すと同じ表が 2 度届いてしまう
-  if (st.stage === STAGE.回答受付中) maybeAggregate_();
+  // ここで集計が走ったら、当番表は集計のなかで送られている。
+  // 段階が「確認待ち」に変わるので、そのまま下へ進むと同じ表をもう一度返してしまう
+  if (st.stage === STAGE.回答受付中 && maybeAggregate_()) return;
 
   st = state_();
   switch (st.stage) {

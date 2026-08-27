@@ -64,38 +64,45 @@ function promptFlex_(altText, lines, actions) {
       type: 'box',
       layout: 'vertical',
       spacing: 'sm',
-      contents: actions.map(function (a) {
-        if (a.uri) {
-          return {
-            type: 'button',
-            style: 'link',
-            height: 'sm',
-            action: { type: 'uri', label: a.label, uri: a.uri }
-          };
-        }
-        return {
-          type: 'button',
-          style: 'primary',
-          color: COLOR.緑,
-          height: 'sm',
-          action: { type: 'postback', label: a.label, data: a.data }
-        };
-      })
+      contents: actions.map(actionButton_)
     };
   }
   return { type: 'flex', altText: altText, contents: bubble };
+}
+
+/** ボタン 1 つ。URL を持つものはリンク、そうでなければ postback */
+function actionButton_(a) {
+  if (a.uri) {
+    return {
+      type: 'button',
+      style: 'link',
+      height: 'sm',
+      action: { type: 'uri', label: a.label, uri: a.uri }
+    };
+  }
+  return {
+    type: 'button',
+    style: 'primary',
+    color: COLOR.緑,
+    height: 'sm',
+    action: { type: 'postback', label: a.label, data: a.data }
+  };
 }
 
 // ---------------------------------------------------------------- カレンダー
 
 /**
  * 1 か月のカレンダーカード。
+ *
+ * このカードは「見せる」ためのもの。日付を押させたいときはウェブ画面
+ * （12_web.gs）を開かせる。Flex は送ったあとに書き換えられないので、
+ * カードの上で選ばせると 1 タップごとに送り直すことになる。
+ *
  * opt: {
- *   altText, ym, title, lines,
+ *   altText, ym, lines,
  *   marked:[日],            緑にする日
- *   pressable:[日]|null,    押せる日。null なら全部押せる
- *   dataFor:function(day),  押したときの postback
- *   footer:{label, data}
+ *   pressable:[日]|null,    白く出す日。null なら全部。ほかは灰色
+ *   actions:[{label, uri}|{label, data}]
  * }
  */
 function calendarFlex_(opt) {
@@ -126,7 +133,7 @@ function calendarFlex_(opt) {
   var row = [];
   for (var i = 0; i < first; i++) row.push(blankCell_());
   for (var d = 1; d <= D; d++) {
-    row.push(dayCell_(d, marked[d] === true, pressable === null || pressable[d] === true, opt.dataFor));
+    row.push(dayCell_(d, marked[d] === true, pressable === null || pressable[d] === true, null));
     if (row.length === 7) { weeks.push(weekBox_(row)); row = []; }
   }
   if (row.length) {
@@ -146,17 +153,12 @@ function calendarFlex_(opt) {
   weeks.forEach(function (w) { body.contents.push(w); });
 
   var bubble = { type: 'bubble', size: 'giga', body: body };
-  if (opt.footer) {
+  if (opt.actions && opt.actions.length) {
     bubble.footer = {
       type: 'box',
       layout: 'vertical',
-      contents: [{
-        type: 'button',
-        style: 'primary',
-        color: COLOR.緑,
-        height: 'sm',
-        action: { type: 'postback', label: opt.footer.label, data: opt.footer.data }
-      }]
+      spacing: 'sm',
+      contents: opt.actions.map(actionButton_)
     };
   }
   return { type: 'flex', altText: opt.altText, contents: bubble };

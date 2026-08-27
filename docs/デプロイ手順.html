@@ -139,7 +139,8 @@ var CHANNEL_ACCESS_TOKEN = '（<span class="keep">チャネルアクセストー
 
 <section id="s4">
 <h2><span class="num">4</span>ウェブアプリとして公開する</h2>
-<p class="lead">LINE から呼べる URL を作る</p>
+<p class="lead">LINE から呼べる URL と、日付を選ぶ画面を作る</p>
+<div class="note">この 1 つの URL が 2 役を兼ねます。<strong>POST が Webhook、GET が日付を選ぶ画面</strong>です。画面のために別のサーバーを借りる必要はありません。</div>
 <ol>
 <li>GAS エディタ右上 <span class="ui">デプロイ</span> → 「新しいデプロイ」</li>
 <li>種類：<strong>ウェブアプリ</strong>
@@ -147,7 +148,9 @@ var CHANNEL_ACCESS_TOKEN = '（<span class="keep">チャネルアクセストー
 <li>「デプロイ」→ 出てきた URL を <span class="keep">ウェブアプリ URL</span> として控える
 <pre>https://script.google.com/macros/s/xxxxxxxx/exec</pre></li>
 </ol>
-<div class="note">コードを直したときは <span class="ui">デプロイを管理</span> → 鉛筆 → バージョン「新バージョン」→ デプロイ。URL は変わりません。<br><code>設定</code> シートの値を変えるだけなら再デプロイは不要です。</div>
+<div class="important"><strong>コードを直すときは「新しいデプロイ」を作らないでください。</strong> <span class="ui">デプロイを管理</span> → 鉛筆 → バージョン「新バージョン」→ デプロイ。こうすれば URL は変わりません。<br>
+新しいデプロイを作ると URL が変わり、<strong>メンバーに配ってある「日付を選ぶ画面」の URL がすべて死にます</strong>（Webhook URL も入れ直しになります）。<br>
+<code>設定</code> シートの値を変えるだけなら再デプロイは不要です。</div>
 </section>
 
 <section id="s5">
@@ -160,6 +163,17 @@ var CHANNEL_ACCESS_TOKEN = '（<span class="keep">チャネルアクセストー
 <li>「Webhook の利用」を <strong>オン</strong></li>
 <li>Official Account Manager の <span class="ui">設定</span> → <span class="ui">応答設定</span> に戻り、<strong>Webhook</strong> を <strong>オン</strong>にする</li>
 </ol>
+
+<h3>合言葉を付ける（おすすめ）</h3>
+<p>日付を選ぶ画面の URL はメンバー全員に配られます。つまり<strong>ウェブアプリの URL は全員が知ることになります</strong>。GAS では署名の確認ができない（HTTP ヘッダが読めない）ので、代わりに URL へ合言葉を付けて、それを知らない POST を受け取らないようにできます。</p>
+<ol>
+<li><code>設定</code> シートの <strong>webhook合言葉</strong> に、推測できない文字列を入れる（例：ランダムな 20 文字）</li>
+<li>LINE の <strong>Webhook URL</strong> を、末尾に <code>?w=</code> と合言葉を付けた形に入れ直す
+<pre>https://script.google.com/macros/s/xxxxxxxx/exec?w=合言葉</pre></li>
+<li>LINE Developers の「検証」を押し、<strong>302</strong> が返ることを確かめる（302 は正常。下を参照）</li>
+<li>手順 8 で、Bot に一言送って返事が来ることを確かめる</li>
+</ol>
+<div class="important">順番を逆にしないでください。<strong>先に合言葉を入れて、あとから URL を直す</strong>と、そのあいだ Bot が反応しなくなります。うまくいかないときは <code>設定</code> の <strong>webhook合言葉</strong> を空にすれば、すぐ元どおりになります（空のあいだは合言葉を確かめません）。</div>
 <div class="important"><strong>「検証」ボタンは 302 エラーになります。これは正常です。</strong> GAS のウェブアプリは <code>/exec</code> へのリクエストを必ず <code>script.googleusercontent.com</code> へ転送する作りで、検証ボタンはその転送を追いません。実際の配信は動きます。<br>
 本当に動いているかは、手順 8 で Bot に一言送って返事が来るかで確かめてください。<br>
 転送先が <code>accounts.google.com</code> の場合だけは本当の失敗です。手順 4 の「アクセスできるユーザー」が「全員」になっていません。</div>
@@ -196,8 +210,11 @@ var CHANNEL_ACCESS_TOKEN = '（<span class="keep">チャネルアクセストー
 <ol>
 <li>管理者の 1 対 1 トークで Bot に何か一言送る → 「いま進めているものはありません。」と返れば <strong>Webhook が通っています</strong></li>
 <li>返事の下に <span class="ui">開始</span> <span class="ui">状況</span> <span class="ui">中止</span> が並ぶ。これが管理者のメニュー</li>
-<li><span class="ui">開始</span> → 対象月 → 部制 → 日数 → <span class="ui">この日程でOK</span> まで試し、メンバーにカレンダーが届くことを確認</li>
-<li>スプレッドシートの <code>名簿</code> に人が並び、<code>状態</code> が進んでいることを確認</li>
+<li><span class="ui">開始</span> → 対象月 → 部制 → 日数 と進み、たたき台のカードで <span class="ui">日程を直す</span> を押す</li>
+<li><strong>スマホの LINE で画面がひらき、日付を押すと緑／白が切り替わることを確認</strong>（ここで LINE には何も送られません）</li>
+<li>画面の <span class="ui">この日程でOK</span> を押し、メンバーにカードが届くことを確認</li>
+<li>届いたカードの <span class="ui">都合を選ぶ</span> を押し、画面がひらいて <span class="ui">確定</span> まで通ることを確認</li>
+<li>スプレッドシートの <code>名簿</code> に人が並び（<strong>鍵</strong> の列が埋まっている）、<code>状態</code> が進んでいることを確認</li>
 <li>確認が終わったら <span class="ui">中止</span></li>
 </ol>
 <div class="note"><strong>反応まで 2〜4 秒かかります。</strong> Google 側の起動時間です。返事が来ないうちに何度押しても壊れません。進行中に <span class="ui">開始</span> を押すと、いま答えるべき質問をもう一度返すだけです。</div>
@@ -209,7 +226,10 @@ var CHANNEL_ACCESS_TOKEN = '（<span class="keep">チャネルアクセストー
 <div class="tablewrap"><table>
 <tr><th>症状</th><th>見るところ</th></tr>
 <tr><td>Webhook の「検証」が 302 で失敗する</td><td>302 なら正常。手順 5 を参照。転送先が <code>accounts.google.com</code> のときだけ本当の失敗で、手順 4 の「アクセスできるユーザー」が「全員」になっていない</td></tr>
-<tr><td>ボタンを押しても返事がない</td><td>GAS エディタ左「実行数」でエラーを見る。トークンが正しいか</td></tr>
+<tr><td>ボタンを押しても返事がない</td><td>GAS エディタ左「実行数」でエラーを見る。トークンが正しいか。合言葉を付けたなら、Webhook URL の <code>?w=</code> と <code>設定</code> の値が一致しているか（迷ったら <code>設定</code> の <strong>webhook合言葉</strong> を空にする）</td></tr>
+<tr><td>「画面をひらけませんでした」と返る</td><td>手順 4 のデプロイができていない。できているのに出る場合は、<code>設定</code> の <strong>入口URL</strong> に <span class="keep">ウェブアプリ URL</span> を貼る</td></tr>
+<tr><td>画面をひらくと「この画面はひらけません」</td><td>配った URL が古い。新しいデプロイを作って URL が変わっていないか（手順 4）。<code>名簿</code> のその人の <strong>鍵</strong> の列が空なら、消さずに戻すか、その人がもう一度 Bot に一言送れば入り直ります</td></tr>
+<tr><td>画面で選んだのに反映されない</td><td>画面の <span class="ui">確定</span> を押さないと保存されません。押すと「受け付けました」と出ます</td></tr>
 <tr><td>「始めますか」が来ない</td><td>トリガーが <code>daily</code> で毎日になっているか。<code>設定</code> の管理者ID が正しいか</td></tr>
 <tr><td>Bot がグループに入れない／グループID が入らない</td><td>手順 1 の「グループトーク・複数人トークへの参加」が<strong>有効</strong>か。有効にしてから、Bot を外してもう一度招待する</td></tr>
 <tr><td>管理者ID がわからない</td><td>LINE Developers → チャネル基本設定 → 一番下「あなたのユーザーID」</td></tr>

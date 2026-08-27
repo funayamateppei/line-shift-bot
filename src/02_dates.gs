@@ -112,33 +112,3 @@ function parseDays_(text) {
 function joinDays_(days) {
   return days.slice().sort(function (a, b) { return a - b; }).join(',');
 }
-
-/**
- * 日の集合をビットマスクの 16 進文字列にする。
- * メンバーのカレンダーは「確定」まで保存しないので、選択中の状態は
- * ボタンの postback に載せて持ち回る（1〜31 日 → 8 文字以内）。
- */
-function daysToMask_(days) {
-  var mask = 0;
-  days.forEach(function (d) {
-    if (d >= 1 && d <= 31) mask |= (1 << (d - 1));
-  });
-  return (mask >>> 0).toString(16);
-}
-
-function maskToDays_(hex) {
-  var mask = parseInt(hex || '0', 16);
-  if (isNaN(mask)) mask = 0;
-  var out = [];
-  for (var d = 1; d <= 31; d++) {
-    if (mask & (1 << (d - 1))) out.push(d);
-  }
-  return out;
-}
-
-function toggleInMask_(hex, day) {
-  var days = maskToDays_(hex);
-  var i = days.indexOf(day);
-  if (i >= 0) days.splice(i, 1); else days.push(day);
-  return daysToMask_(days);
-}

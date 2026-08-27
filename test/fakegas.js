@@ -271,7 +271,33 @@ function makeGas() {
       createTextOutput: t => ({ text: t })
     },
 
+    // ウェブ画面。中身は文字列なので、そのまま持っておいて検査できるようにする
+    HtmlService: {
+      createHtmlOutput(html) {
+        const out = {
+          html,
+          title: '',
+          meta: {},
+          getContent: () => out.html,
+          setTitle(t) { out.title = t; return out; },
+          addMetaTag(name, content) { out.meta[name] = content; return out; },
+          setXFrameOptionsMode() { return out; }
+        };
+        gas.pages.push(out);
+        return out;
+      }
+    },
+
+    ScriptApp: {
+      getService: () => ({ getUrl: () => gas.webAppUrl })
+    },
+
     Utilities: {
+      // 本物は毎回ちがう UUID を返す。鍵が重ならないことに意味があるので数える
+      getUuid() {
+        gas.uuidCount++;
+        return 'uuid-' + pad(gas.uuidCount, 4) + '-0000-0000-000000000000';
+      },
       formatDate(date, tz, fmt) {
         return fmt
           .replace('yyyy', pad(date.getFullYear(), 4))
@@ -284,6 +310,9 @@ function makeGas() {
     },
 
     names: {},
+    pages: [],           // doGet が返した画面
+    uuidCount: 0,
+    webAppUrl: 'https://script.google.com/macros/s/AKfyTEST/exec',
 
     // テストから触るつまみ
     failNext: [],        // 'throw' か HTTP コードを積むと、その順に送信が失敗する

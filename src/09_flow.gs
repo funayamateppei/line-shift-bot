@@ -28,7 +28,7 @@ function onStart_(replyToken) {
       reply_(replyToken, msgAskCount_(st.ym, st.part, prefix));
       return;
     case STAGE.日程編集中:
-      reply_(replyToken, msgDraft_(st.ym, st.days, false, prefix));
+      reply_(replyToken, msgDraft_(st.ym, st.days, false, prefix, adminEntryUrl_()));
       return;
     case STAGE.回答受付中:
       reply_(replyToken, statusWaitingMessages_(st.ym, prefix));
@@ -82,53 +82,32 @@ function onCount_(replyToken, value) {
   if (isNaN(count) || count < 1) { onStart_(replyToken); return; }
 
   var days = spreadDays_(st.ym, count);
-  reply_(replyToken, msgDraft_(st.ym, days, true, null));
+  reply_(replyToken, msgDraft_(st.ym, days, true, null, adminEntryUrl_()));
   saveState_({ ym: st.ym, stage: STAGE.日程編集中, part: st.part, days: days });
 }
 
 /**
- * 5.5 たたき台の日付を押した。
- * 編集の途中を〔開始〕でたどり直せるように、選んでいる日はその都度残す。
- * メンバーには何も送らない。
+ * 5.6 この日程でOK。ここで初めてメンバーへ送る。
+ * 押されるのはウェブ画面のなか。段階と日の確かめは呼ぶ側（12_web.gs）でやっている。
  */
-function onAdminToggle_(replyToken, day) {
+function fixDays_(ym, days) {
   var st = state_();
-  if (st.stage !== STAGE.日程編集中) { onStart_(replyToken); return; }
-  if (isNaN(day) || day < 1 || day > daysInMonth_(st.ym)) {
-    reply_(replyToken, msgDraft_(st.ym, st.days, false, null));
-    return;
-  }
-
-  var days = st.days.slice();
-  var i = days.indexOf(day);
-  if (i >= 0) days.splice(i, 1); else days.push(day);
-  days.sort(function (a, b) { return a - b; });
-
-  reply_(replyToken, msgDraft_(st.ym, days, false, null));
-  saveState_({ ym: st.ym, stage: STAGE.日程編集中, part: st.part, days: days });
-}
-
-/** 5.6 この日程でOK。ここで初めてメンバーへ送る */
-function onFixDays_(replyToken) {
-  var st = state_();
-  if (st.stage !== STAGE.日程編集中) { onStart_(replyToken); return; }
-  if (!st.days.length) { reply_(replyToken, msgNeedOneDay_()); return; }
 
   // 受付を始める前に、その月の古い回答を消す。
   // 一度作った月をもう一度選び直したとき、前回の回答が「回答済み」として
   // 数えられ、誰か 1 人の確定で集計が走ってしまうのを防ぐ。
-  clearAnswers_(st.ym);
+  clearAnswers_(ym);
 
-  reply_(replyToken, msgFixed_(st.ym, st.days));
-  saveState_({ ym: st.ym, stage: STAGE.回答受付中, part: st.part, days: st.days });
+  saveState_({ ym: ym, stage: STAGE.回答受付中, part: st.part, days: days });
 
-  sendCalendars_(st.ym, st.days);
+  sendCalendars_(ym, days);
 }
 
 /** 追加済みの人へカレンダーを送り、未追加の人にはグループでお願いする */
 function sendCalendars_(ym, workDays) {
+  var base = webAppUrl_();
   members_().forEach(function (p) {
-    push_(p.userId, msgAskAvailability_(ym, workDays, []));
+    push_(p.userId, msgAskAvailability_(ym, workDays, entryUrl_(p.key, base)));
   });
 
   var waiting = notAdded_();
@@ -284,44 +263,6 @@ function onPublish_(replyToken) {
 
   reply_(replyToken, msgPublished_(st.ym));
   saveState_({ ym: st.ym, stage: STAGE.公開済み, part: st.part, days: st.days });
-}
-
-// ---------------------------------------------------------------- メンバー
-
-/** 6.2 カレンダーの日付を押した。押しただけでは保存しない */
-function onMemberToggle_(replyToken, ym, mask, day) {
-  var st = state_();
-  if (st.stage !== STAGE.回答受付中 || st.ym !== ym) {
-    reply_(replyToken, msgClosed_(ym, false));
-    return;
-  }
-  var selected = maskToDays_(toggleInMask_(mask, day));
-  reply_(replyToken, msgAskAvailability_(ym, st.days, selected));
-}
-
-/** 6.2 確定 */
-function onMemberConfirm_(replyToken, userId, ym, mask, confirmedZero) {
-  var st = state_();
-
-  if (st.ym !== ym || st.stage !== STAGE.回答受付中) {
-    var justAggregated = (st.ym === ym && st.stage !== STAGE.なし);
-    reply_(replyToken, msgClosed_(ym, justAggregated));
-    return;
-  }
-
-  var selected = maskToDays_(mask).filter(function (d) {
-    return st.days.indexOf(d) >= 0;
-  });
-
-  if (!selected.length && !confirmedZero) {
-    reply_(replyToken, msgConfirmZero_(ym));
-    return;
-  }
-
-  appendAnswer_(ym, userId, nameOf_(userId), selected);
-  reply_(replyToken, msgAnswerTaken_(ym, selected));
-
-  maybeAggregate_();
 }
 
 // ---------------------------------------------------------------- 集計

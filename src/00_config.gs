@@ -96,8 +96,40 @@ function settings_() {
     adminId: realId_(map['管理者ID']),
     groupId: realId_(map['グループID']),
     noticeDay: toInt_(map['お知らせ日'], DEFAULT_NOTICE_DAY),
-    dueDay: toInt_(map['締切日'], DEFAULT_DUE_DAY)
+    dueDay: toInt_(map['締切日'], DEFAULT_DUE_DAY),
+    webhookSecret: map['webhook合言葉'] || '',
+    entryUrl: map['入口URL'] || ''
   };
+}
+
+/**
+ * ウェブアプリ（カレンダーを開く画面）の URL。
+ *
+ * ふつうは自分で自分の URL を取れる。取れないとき（デプロイのしかたによっては
+ * 空が返る）のために、設定シートの「入口URL」で上書きできるようにしておく。
+ */
+function webAppUrl_() {
+  var fixed = settings_().entryUrl;
+  if (fixed) return fixed;
+  try {
+    return String(ScriptApp.getService().getUrl() || '');
+  } catch (e) {
+    log_('ウェブアプリの URL が取れませんでした: ' + e);
+    return '';
+  }
+}
+
+/**
+ * その人だけの入口 URL。
+ * 鍵が無い／URL が取れないときは空を返す。空のまま uri ボタンは作れない。
+ *
+ * base を渡すと URL を引き直さない。人数ぶんまとめて作るときは渡すこと
+ * （webAppUrl_ は毎回 設定 シートを読む）。
+ */
+function entryUrl_(key, base) {
+  var url = base === undefined ? webAppUrl_() : base;
+  if (!url || !key) return '';
+  return url + (url.indexOf('?') >= 0 ? '&' : '?') + 'k=' + encodeURIComponent(key);
 }
 
 /** 設定シートの 1 項目を書き換える（グループIDの自動取得に使う） */

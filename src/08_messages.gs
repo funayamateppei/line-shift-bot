@@ -79,17 +79,25 @@ function msgAskCount_(ym, part, prefix) {
   ]);
 }
 
-/** 5.5 たたき台のカレンダー */
-function msgDraft_(ym, days, isFirst, prefix) {
+/**
+ * 5.5 たたき台のカレンダー。
+ *
+ * カードは見せるだけ。付け外しと〔この日程でOK〕は画面のなかにある。
+ * Flex は送ったあとに書き換えられないので、カードの上で選ばせると
+ * 1 タップごとにカードを送り直すことになる。
+ */
+function msgDraft_(ym, days, isFirst, prefix, url) {
+  if (!url) return withAdminMenu_(msgNoEntry_());
+
   var lines = [];
   if (prefix) lines.push(prefix);
   if (isFirst) {
     lines.push(ymLabel_(ym) + 'に' + days.length + '日、均等に散らした案です。');
-    lines.push('日付を押すと当番の日を付け外しできます。');
   } else {
     lines.push('いま' + days.length + '日です。');
   }
-  lines.push('よければ〔この日程でOK〕を押してください。');
+  lines.push('〔日程を直す〕を押すと画面がひらきます。');
+  lines.push('画面で日付を付け外しして〔この日程でOK〕を押してください。');
 
   return withAdminMenu_([
     calendarFlex_({
@@ -98,49 +106,52 @@ function msgDraft_(ym, days, isFirst, prefix) {
       lines: lines,
       marked: days,
       pressable: null,
-      dataFor: function (d) { return 'a=atog&d=' + d; },
-      footer: { label: 'この日程でOK', data: 'a=aok' }
+      actions: [uri_('日程を直す', url)]
     })
-  ]);
-}
-
-/** 5.5 0 日のまま押された */
-function msgNeedOneDay_() {
-  return withAdminMenu_([text_('1日以上選んでください。')]);
-}
-
-/** 5.6 日程を確定した */
-function msgFixed_(ym, days) {
-  return withAdminMenu_([
-    promptFlex_(ymLabel_(ym) + 'の当番の日を確定しました', [
-      ymLabel_(ym) + 'の当番の日を確定しました（' + days.length + '日）。',
-      daysLabel_(ym, days),
-      'メンバーに都合を聞きます。全員の回答がそろったら当番表を送ります。'
-    ], [postback_('状況', 'a=status')])
   ]);
 }
 
 // ---------------------------------------------------------------- 6. メンバー
 
-/** 6.1 都合がつく日をたずねるカレンダー */
-function msgAskAvailability_(ym, workDays, selected) {
+/**
+ * 6.1 都合がつく日をたずねるカレンダー。
+ * カードは当番の日を見せるだけ。選ぶのは画面のなか（msgDraft_ と同じ理由）。
+ */
+function msgAskAvailability_(ym, workDays, url, prefix) {
+  if (!url) return msgNoEntry_();
+
+  var lines = [];
+  if (prefix) lines.push(prefix);
+  lines.push(ymLabel_(ym) + 'の当番の日です。');
+  lines.push('〔都合を選ぶ〕を押すと画面がひらきます。');
+  lines.push('都合がつく日を押して〔確定〕を押してください。');
+
   return [
     calendarFlex_({
       altText: ymLabel_(ym) + 'の当番で都合がつく日を選んでください',
       ym: ym,
-      lines: [
-        ymLabel_(ym) + 'の当番で、都合がつく日を押してください。',
-        '押した日は緑になります。',
-        '選び終わったら〔確定〕を押してください。'
-      ],
-      marked: selected || [],
+      lines: lines,
+      marked: [],
       pressable: workDays,
-      dataFor: function (d) {
-        return 'a=mtog&ym=' + ym + '&s=' + daysToMask_(selected || []) + '&d=' + d;
-      },
-      footer: { label: '確定', data: 'a=mok&ym=' + ym + '&s=' + daysToMask_(selected || []) }
+      actions: [uri_('都合を選ぶ', url)]
     })
   ];
+}
+
+/**
+ * 入口 URL が作れないとき。
+ * ウェブアプリを公開していないか、設定シートの「入口URL」が要る状態。
+ */
+function msgNoEntry_() {
+  return [text_(
+    '画面をひらけませんでした。\n'
+    + 'ウェブアプリが公開されているか、設定シートの「入口URL」を確かめてください。'
+  )];
+}
+
+/** 差し替え前のカードを押されたが、いま開けるものがないとき */
+function msgOldCard_() {
+  return [text_('この操作は画面に移りました。\nいま開けるものはありません。')];
 }
 
 /** 6.1 未追加の人へ、グループでお願いする */
@@ -150,33 +161,6 @@ function msgAskFriendAdd_(ym, people) {
   return { mention: mentionText_(people, body), plain: plainMentionText_(people, body) };
 }
 
-/** 6.2 回答を受け付けた */
-function msgAnswerTaken_(ym, days) {
-  var list = days.length ? daysLabel_(ym, days) : '都合がつく日なし';
-  return [text_(
-    'ありがとうございます。' + ymLabel_(ym) + 'は次の日で受け付けました。\n'
-    + list + '\n'
-    + '変えたいときは、もう一度カレンダーで選んで〔確定〕を押してください。'
-  )];
-}
-
-/** 6.2 1 日も選ばずに確定した 1 回目 */
-function msgConfirmZero_(ym) {
-  return [
-    promptFlex_('都合がつく日がないということでよろしいですか？', [
-      '1日も選ばれていません。',
-      ymLabel_(ym) + 'は都合がつく日がない、ということでよろしいですか？',
-      'よろしければもう一度〔確定〕を押してください。'
-    ], [postback_('確定', 'a=mok&ym=' + ym + '&s=0&c=1')])
-  ];
-}
-
-/** 6.3 受け付けられないとき */
-function msgClosed_(ym, isJustAggregated) {
-  var body = ymLabel_(ym) + '分の回答は締め切りました。';
-  if (isJustAggregated) body += '\n変更は管理者に連絡してください。';
-  return [text_(body)];
-}
 
 // ---------------------------------------------------------------- 7. 管理者（後半）
 

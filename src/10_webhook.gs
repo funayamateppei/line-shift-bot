@@ -1,12 +1,19 @@
 /**
  * Webhook。LINE から届くイベントの入口。
  *
- * ヘッダが読めないので署名の検証はしない。ウェブアプリの URL が推測できない長さ
- * であることで足りるとする（漏れて困る情報を持たない）。
+ * ヘッダが読めないので署名の検証はしない。代わりに、URL に合言葉を付けられる
+ * ようにしてある（設定シートの「webhook合言葉」）。
+ *
+ * カレンダーの画面（12_web.gs）を配るようになって、ウェブアプリの URL は
+ * メンバー全員の知るところになった。「URL を知っているのは LINE と管理者だけ」
+ * という前提が崩れるので、合言葉を知らない POST は受け取らない。
+ * 合言葉が空のあいだは、いままでどおり誰でも通す。
  */
 
 function doPost(e) {
   try {
+    if (!webhookAllowed_(e)) return ContentService.createTextOutput('NG');
+
     var body = JSON.parse(e.postData.contents);
     var events = body.events || [];
     if (events.length) withLock_(events, function () {
@@ -22,6 +29,17 @@ function doPost(e) {
     logError_(err);
   }
   return ContentService.createTextOutput('OK');
+}
+
+/**
+ * この POST を受け取ってよいか。
+ * 合言葉を決めていれば、LINE に登録した URL の ?w= と一致するときだけ通す。
+ */
+function webhookAllowed_(e) {
+  var want = settings_().webhookSecret;
+  if (!want) return true;
+  var got = (e && e.parameter && e.parameter.w) || '';
+  return String(got) === want;
 }
 
 /**
@@ -98,12 +116,14 @@ function onFollow_(ev) {
   if (!userId) return;
 
   var name = profileName_(userId);
-  rosterUpsert_(userId, { name: name, friend: true, inGroup: true });
+  var saved = rosterUpsert_(userId, { name: name, friend: true, inGroup: true });
 
   var messages = msgFollowed_();
   var st = state_();
   if (st.stage === STAGE.回答受付中 && !hasAnswered_(st.ym, userId)) {
-    messages = messages.concat(msgAskAvailability_(st.ym, st.days, []));
+    messages = messages.concat(
+      msgAskAvailability_(st.ym, st.days, entryUrl_(saved ? saved.key : ''))
+    );
   }
   reply_(ev.replyToken, messages);
 
@@ -161,11 +181,10 @@ function onPostback_(ev) {
   var isAdmin = userId && userId === settings_().adminId;
 
   switch (data.a) {
-    // メンバーの操作。誰でも押せる
+    // 差し替える前のカード。トークに残り続けるので、黙って捨てずに入口を返す
     case 'mtog':
-      return onMemberToggle_(ev.replyToken, data.ym, data.s, parseInt(data.d, 10));
     case 'mok':
-      return onMemberConfirm_(ev.replyToken, userId, data.ym, data.s, data.c === '1');
+      return onOldCard_(ev.replyToken, userId);
   }
 
   // ここから先は管理者だけ。ほかの人にはボタン自体が出ないので何も返さない
@@ -179,10 +198,30 @@ function onPostback_(ev) {
     case 'ym':      return onPickMonth_(ev.replyToken, data.v);
     case 'part':    return onPart_(ev.replyToken, data.v);
     case 'num':     return onCount_(ev.replyToken, data.v);
-    case 'atog':    return onAdminToggle_(ev.replyToken, parseInt(data.d, 10));
-    case 'aok':     return onFixDays_(ev.replyToken);
+    case 'atog':
+    case 'aok':     return onOldCard_(ev.replyToken, userId);
     case 'publish': return onPublish_(ev.replyToken);
   }
+}
+
+/**
+ * 差し替える前のカレンダーカードを押されたとき。
+ * いま開ける画面があればその入口を返す。どれも reply なので通数 0。
+ */
+function onOldCard_(replyToken, userId) {
+  var st = state_();
+  var isAdmin = userId && userId === settings_().adminId;
+
+  if (isAdmin && st.stage === STAGE.日程編集中) {
+    reply_(replyToken, msgDraft_(st.ym, st.days, false, '画面で選ぶように変わりました。', adminEntryUrl_()));
+    return;
+  }
+  if (st.stage === STAGE.回答受付中 && isMember_(userId)) {
+    reply_(replyToken,
+      msgAskAvailability_(st.ym, st.days, entryUrl_(keyFor_(userId)), '画面で選ぶように変わりました。'));
+    return;
+  }
+  reply_(replyToken, msgOldCard_());
 }
 
 /** 'a=start&v=1' → {a:'start', v:'1'} */
@@ -201,7 +240,7 @@ function parseData_(raw) {
 
 /**
  * 文字入力は使わない決まりだが、押すものを見失ったときの戻り道は用意しておく。
- * 管理者には状況を返し、メンバーには受付中ならカレンダーを出しなおす（どちらも通数 0）。
+ * 管理者には状況を返し、メンバーには受付中なら入口を出しなおす（どちらも通数 0）。
  */
 function onMessage_(ev) {
   var source = ev.source || {};
@@ -229,7 +268,7 @@ function onMessage_(ev) {
   if (st.stage === STAGE.回答受付中) {
     var p = rosterFind_(userId);
     if (p && p.inGroup && p.friend) {
-      reply_(ev.replyToken, msgAskAvailability_(st.ym, st.days, []));
+      reply_(ev.replyToken, msgAskAvailability_(st.ym, st.days, entryUrl_(keyFor_(userId))));
     }
   }
 }

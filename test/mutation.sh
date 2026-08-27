@@ -84,10 +84,7 @@ run 04_plan.gs 'var offset = q > 1 ? Math.floor(random() * q) : 0;' 'var offset 
 
 section '進行'
 run 09_flow.gs '  if (notAdded_().length) return false;' '' '未追加の人がいても集計する'
-run 09_flow.gs 'if (!selected.length && !confirmedZero)' 'if (false)' '0 日で確定したときに聞き返さない'
-run 09_flow.gs 'st.ym !== ym || ' '' '古いカードの回答を受け付ける'
 run 09_flow.gs '  if (!s.groupId) return;' '  if (false) return;' 'グループIDが空でも送ろうとする'
-run 09_flow.gs 'if (!st.days.length) { reply_(replyToken, msgNeedOneDay_()); return; }' '' '0 日のまま日程を確定できる'
 
 section '受け口'
 run 10_webhook.gs '  if (!isAdmin) return;' '' '管理者以外にも管理者の操作をさせる'
@@ -104,7 +101,8 @@ run 07_ui.gs "    if (part === PART.二部) {
 run 07_ui.gs "  return blocks.join('\\n\\n');" "  return blocks.join('\\n');" '日付ごとの区切りをなくす'
 
 section 'レビューで直したところ'
-run 09_flow.gs '  clearAnswers_(st.ym);' '' '中止しても前回の回答を消さない'
+run 09_flow.gs '  clearAnswers_(target);' '' '中止しても前回の回答を消さない'
+run 09_flow.gs '  clearAnswers_(ym);' '' '受付を始めるときに古い回答を消さない'
 run 09_flow.gs '  if (!push_(s.groupId, msgPublish_(st.ym, shift.part || st.part, shift.rows))) {
     reply_(replyToken, msgPublishFailed_(st.ym));
     return;
@@ -163,9 +161,6 @@ section '2 回目のレビューで直したところ'
 run 07_ui.gs '  var body = (lines || []).filter(function (line) { return line; });
   if (body.length) {' '  var body = (lines || []).filter(function (line) { return line; });
   if (true) {' '中身の空の箱を送ってしまう形に戻す'
-run 09_flow.gs '  clearAnswers_(st.ym);
-
-  reply_(replyToken, msgFixed_' '  reply_(replyToken, msgFixed_' '受付を始めるときに古い回答を消さない'
 run 09_flow.gs '    default:
       // 状態シートを手で書き換えられて知らない段階になっていたら、始めからやり直す
       clearState_();
@@ -182,10 +177,6 @@ run 10_webhook.gs "    if (ev.type === 'postback' && ev.replyToken) {" '    if (
 run 03_store.gs '  var need = start + values.length - 1;
   if (sh.getMaxRows() < need) sh.insertRowsAfter(sh.getMaxRows(), need - sh.getMaxRows());' '' '行が減ったシートに足さずに書く'
 run 09_flow.gs "  if (monthChoices_(new Date()).indexOf(String(value || '')) < 0) {" "  if (String(value || '').length !== 7) {" '対象月を選択肢と照合しない'
-run 09_flow.gs '  if (isNaN(day) || day < 1 || day > daysInMonth_(st.ym)) {
-    reply_(replyToken, msgDraft_(st.ym, st.days, false, null));
-    return;
-  }' '' '月にない日でも足す'
 run 09_flow.gs '  var count = members_().filter(function (p) {
     return Object.prototype.hasOwnProperty.call(answered, p.userId);
   }).length;' '  var count = Object.keys(answered).length;' '抜けた人も回答済みに数える'
@@ -232,5 +223,31 @@ run 05_assign.gs 'var days = [];
   workDays.forEach(function (d) { if (days.indexOf(d) < 0) days.push(d); });
   days.sort' 'var days = workDays.slice();
   days.sort' '重なった日をまとめない'
+
+
+section '画面（12_web.gs）'
+run 12_web.gs '.filter(function (d) { return d <= last; });' ';' '月にない日も当番の日にする'
+run 12_web.gs "  if (!picked.length) return ng_('1日以上選んでください。');" '' '0 日のまま日程を確定できる'
+run 12_web.gs '    if (st.stage !== STAGE.回答受付中 || st.ym !== ym) {' '    if (st.stage !== STAGE.回答受付中) {' '古い月の回答を受け付ける'
+run 12_web.gs '    var selected = parseDays_(String(days || '"''"')).filter(function (d) {
+      return st.days.indexOf(d) >= 0;
+    });' '    var selected = parseDays_(String(days || '"''"'));' '当番の日でない日も回答に入れる'
+run 12_web.gs '    var adminId = settings_().adminId;
+    if (!person || !adminId || person.userId !== adminId) {' '    var adminId = settings_().adminId;
+    if (false) {' 'メンバーの鍵でも日程を確定できる'
+run 12_web.gs '    if (st.stage !== STAGE.日程編集中 || st.ym !== ym) {' '    if (false) {' '確定ずみの日程を画面から書き換えられる'
+run 12_web.gs "'say(\"1日も選ばれていません。都合がつく日なしでよければ、もう一度〔確定〕を押してください。\");return;}'," "'return;}'," '画面で 0 日の聞き返しをしない'
+run 12_web.gs '  if (person.userId === settings_().adminId && st.stage === STAGE.日程編集中) {' '  if (false) {' '管理者の画面をひらけなくする'
+run 12_web.gs '  if (st.stage === STAGE.回答受付中 && person.inGroup && person.friend) {' '  if (false) {' 'メンバーの画面をひらけなくする'
+
+section '鍵と入口'
+run 03_store.gs '  var key = found.key || newKey_();' '  var key = newKey_();' '名簿を書くたびに鍵を作り直す'
+run 00_config.gs "  return url + (url.indexOf('?') >= 0 ? '&' : '?') + 'k=' + encodeURIComponent(key);" '  return url;' '入口 URL に鍵を載せない'
+run 07_ui.gs '    row.push(dayCell_(d, marked[d] === true, pressable === null || pressable[d] === true, null));' "    row.push(dayCell_(d, marked[d] === true, pressable === null || pressable[d] === true, function (n) { return 'a=atog&d=' + n; }));" 'カードの日付をまた押せるようにする'
+run 10_webhook.gs "    if (!webhookAllowed_(e)) return ContentService.createTextOutput('NG');" '' 'webhook の合言葉を確かめない'
+run 10_webhook.gs '  var want = settings_().webhookSecret;
+  if (!want) return true;' '  var want = settings_().webhookSecret;
+  if (true) return true;' '合言葉を決めても素通しにする'
+run 08_messages.gs '  if (!url) return msgNoEntry_();' '' '入口が無くてもカードを組み立てる'
 
 report

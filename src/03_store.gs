@@ -14,7 +14,7 @@ function rosterAll_() {
   var sh = sheet_(SHEET.名簿);
   var last = sh.getLastRow();
   if (last < 2) return [];
-  var values = sh.getRange(2, 1, last - 1, 5).getValues();
+  var values = sh.getRange(2, 1, last - 1, 6).getValues();
   // 手で編集して同じ userId が 2 行できても二重に数えない。後の行を採用する
   // userId は名簿シートで人が編集できる。toString のような名前が入っても
   // 「もうある」と誤って判断しないよう、素の入れ物を使う
@@ -29,6 +29,7 @@ function rosterAll_() {
       name: String(values[i][1] || '').trim(),
       inGroup: values[i][2] === true,
       friend: values[i][3] === true,
+      key: String(values[i][5] || '').trim(),
       row: i + 2
     };
   }
@@ -54,6 +55,52 @@ function rosterFind_(userId) {
 }
 
 /**
+ * 鍵からその人を引く。ウェブ画面を開いたのが誰かを知る唯一の手段。
+ *
+ * 空の鍵は必ず弾く。名簿には鍵の入っていない行が残りうるので、
+ * 素通しにすると ?k= だけでその人になりすませてしまう。
+ */
+function rosterByKey_(key) {
+  var k = String(key || '').trim();
+  if (!k) return null;
+  var all = rosterAll_();
+  for (var i = 0; i < all.length; i++) {
+    if (all[i].key === k) return all[i];
+  }
+  return null;
+}
+
+/** カレンダーを送る相手か */
+function isMember_(userId) {
+  var p = userId ? rosterFind_(userId) : null;
+  return !!(p && p.inGroup && p.friend);
+}
+
+/**
+ * その人の鍵。無ければ作って名簿に書く。
+ *
+ * 管理者が名簿にいない場合の受け皿でもある。作られる行は在籍も友だち追加も
+ * 外れているので、メンバーの数にも未追加の数にも入らない。
+ */
+function keyFor_(userId) {
+  if (!userId) return '';
+  var p = rosterFind_(userId);
+  if (p && p.key) return p.key;
+  var saved = rosterUpsert_(userId, {});
+  return saved ? saved.key : '';
+}
+
+/** 管理者の入口 URL */
+function adminEntryUrl_() {
+  return entryUrl_(keyFor_(settings_().adminId));
+}
+
+/** 推測できない長さの鍵 */
+function newKey_() {
+  return String(Utilities.getUuid()).replace(/-/g, '');
+}
+
+/**
  * 名簿を更新する。渡した項目だけ書き換える。
  * patch: {name, inGroup, friend}
  */
@@ -68,19 +115,26 @@ function rosterUpsert_(userId, patch) {
       patch.name || '',
       patch.inGroup === true,
       patch.friend === true,
-      stamp_()
+      stamp_(),
+      newKey_()
     ];
     sh.appendRow(row);
     var r = sh.getLastRow();
     sh.getRange(r, 3, 1, 2).insertCheckboxes().setValues([[row[2], row[3]]]);
-    return { userId: userId, name: row[1], inGroup: row[2], friend: row[3], row: r };
+    return {
+      userId: userId, name: row[1], inGroup: row[2], friend: row[3], key: row[5], row: r
+    };
   }
 
   var name = patch.name !== undefined && patch.name ? patch.name : found.name;
   var inGroup = patch.inGroup !== undefined ? patch.inGroup : found.inGroup;
   var friend = patch.friend !== undefined ? patch.friend : found.friend;
-  sh.getRange(found.row, 1, 1, 5).setValues([[userId, name, inGroup, friend, stamp_()]]);
-  return { userId: userId, name: name, inGroup: inGroup, friend: friend, row: found.row };
+  // 鍵は一度きり。作り直すと配ってある入口 URL がすべて死ぬ
+  var key = found.key || newKey_();
+  sh.getRange(found.row, 1, 1, 6).setValues([[userId, name, inGroup, friend, stamp_(), key]]);
+  return {
+    userId: userId, name: name, inGroup: inGroup, friend: friend, key: key, row: found.row
+  };
 }
 
 /** 表示名。取れていなければ空を返す（userId は外へ出さない） */

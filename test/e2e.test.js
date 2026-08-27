@@ -105,6 +105,47 @@ function buttonData(env) {
   return found;
 }
 
+/**
+ * 画面のなかの JavaScript を、DOM のまねの上で実際に動かす。
+ * 色や幅そのものは見られないが、組み立てた形と、押したときの動きは見られる。
+ */
+function runPage(html) {
+  const el = tag => {
+    const n = {
+      tag, children: [], className: '', textContent: '', value: '',
+      type: '', disabled: false, hidden: false,
+      appendChild(c) { n.children.push(c); return c; },
+      set innerHTML(v) { n._h = v; if (v === '') n.children = []; },
+      get innerHTML() { return n._h || ''; }
+    };
+    return n;
+  };
+  const nodes = {};
+  ['list', 'cal', 'msg', 'ok', 'main', 'bar', 'fin']
+    .forEach(id => { nodes[id] = el(id === 'ok' ? 'button' : 'div'); });
+
+  const document = { createElement: el, getElementById: id => nodes[id] || (nodes[id] = el('div')) };
+  const window = { scrollTo() {} };
+  const sent = [];
+  const run = {
+    withSuccessHandler(f) { run._ok = f; return run; },
+    withFailureHandler(f) { run._ng = f; return run; },
+    webAnswer(...a) { sent.push(['webAnswer', ...a]); },
+    webFixDays(...a) { sent.push(['webFixDays', ...a]); },
+    webSaveShift(...a) { sent.push(['webSaveShift', ...a]); }
+  };
+  const google = { script: { run } };
+
+  const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
+  eval(scripts.join('\n'));           // document / window / google はここの束縛を見る
+  return { nodes, sent, run, document, window, google };
+}
+
+/** その部品の直下から、class の合う子を拾う */
+function kids(node, cls) {
+  return node.children.filter(c => String(c.className).split(' ').indexOf(cls) >= 0);
+}
+
 /** LINE から届いたことにして doPost を通す。合言葉は setup() が作ったもの */
 function post(env, events) {
   return env.ctx.doPost({
@@ -291,7 +332,7 @@ section('導入から公開まで');
   const adminMsg = pushTextTo(env, 'Uadmin');
   check('当番表が管理者に届く',
     adminMsg.includes('全員の回答がそろいました。\n2026年9月の当番表です。'), adminMsg);
-  check('入れ替えのボタンがある', adminMsg.includes('担当を入れ替える（表を開く）'));
+  check('入れ替えのボタンがある', adminMsg.includes('担当を入れ替える'));
   check('2部制は日付・午前・午後を行で分ける',
     /\d+\/\d+\n午前 \S+さん\n午後 \S+さん/.test(adminMsg), adminMsg);
   check('日付ごとに空行で区切る',
@@ -310,13 +351,56 @@ section('導入から公開まで');
   check('担当回数が均等（差は 1 以内）',
     Math.max(...counts) - Math.min(...counts) <= 1, JSON.stringify(counts));
 
-  // 表を開くボタンは、押した先で URL を返すのではなく、それ自体がリンク
+  // 入れ替えのボタンは、押した先で URL を返すのではなく、それ自体がリンク
   const opener = JSON.stringify(env.gas.sent).match(/"uri":"([^"]+)"/);
-  check('担当を入れ替えるボタンがシートを直接ひらく',
-    !!opener && opener[1].indexOf('docs.google.com/spreadsheets') >= 0,
+  check('担当を入れ替えるボタンが画面を直接ひらく',
+    !!opener && opener[1].indexOf('AKfyTEST/exec?k=') >= 0,
     JSON.stringify(opener && opener[1]));
-  check('その年度のシートを指している',
-    !!opener && opener[1].indexOf('#gid=') >= 0, JSON.stringify(opener && opener[1]));
+  check('スプレッドシートは出さない',
+    !JSON.stringify(env.gas.sent).includes('docs.google.com/spreadsheets'));
+
+  // 担当を入れ替える画面
+  const editor = openPage(env, 'Uadmin');
+  check('当番表の画面がひらく', editor.includes('この内容で保存'), editor.slice(0, 300));
+  check('いまの担当が入っている',
+    editor.includes('"am":"' + shift.rows[0].am + '"'), editor.slice(0, 600));
+  check('来られる人が載る', editor.includes('"cands":['), editor.slice(0, 600));
+
+  // 1 枠だけ入れ替える
+  const other = PEOPLE.map(p => p.name).find(n => n !== shift.rows[0].am && n !== shift.rows[0].pm);
+  env.gas.sent.length = 0;
+  const saved = ctx.webSaveShift(keyOf(env, 'Uadmin'), '2026-09', [{ day: shift.rows[0].day, am: other }]);
+  check('保存できる', saved.ok === true, JSON.stringify(saved));
+  const after = ctx.readShift_('2026-09').rows[0];
+  check('その枠だけ変わる',
+    after.am === other && after.pm === shift.rows[0].pm, JSON.stringify(after));
+  check('ほかの日は変わらない',
+    JSON.stringify(ctx.readShift_('2026-09').rows.slice(1))
+      === JSON.stringify(shift.rows.slice(1)));
+  check('管理者に最新の当番表を送る（1 通）',
+    pushes(env).length === 1 && pushes(env)[0].payload.to === 'Uadmin');
+  check('送った表が直したあとのもの', pushTextTo(env, 'Uadmin').includes(other + 'さん'));
+  check('直したと伝える', pushTextTo(env, 'Uadmin').includes('当番表を直しました。'));
+
+  // 名簿にいない名前は入れない
+  const junk = ctx.webSaveShift(keyOf(env, 'Uadmin'), '2026-09', [{ day: shift.rows[0].day, am: '知らない人' }]);
+  check('知らない名前は書かない', ctx.readShift_('2026-09').rows[0].am === other, JSON.stringify(junk));
+  check('メンバーの鍵では直せない',
+    ctx.webSaveShift(keyOf(env, 'Ualice'), '2026-09', [{ day: shift.rows[0].day, am: other }]).ok === false);
+
+  // 同じ値を送っても書き換えたことにしない
+  env.gas.sent.length = 0;
+  const same = ctx.webSaveShift(keyOf(env, 'Uadmin'), '2026-09', [{ day: shift.rows[0].day, am: other }]);
+  check('変わっていなければ書き換えない',
+    same.ok === true && same.text.includes('直したところはありませんでした'), same.text);
+  check('変わっていなくても最新を送る',
+    pushTextTo(env, 'Uadmin').includes('当番表は変わっていません。'), pushTextTo(env, 'Uadmin'));
+
+  // 当番表にない日は書き込まない（シートを直に触る口の守り）
+  const before = JSON.stringify(ctx.readShift_('2026-09').rows);
+  check('当番表にない日は書き込まない',
+    ctx.updateShiftSlots_('2026-09', [{ day: 99, am: other }]) === 0);
+  check('表は 1 行も動かない', JSON.stringify(ctx.readShift_('2026-09').rows) === before);
 
   // 公開
   env.gas.sent.length = 0;
@@ -327,6 +411,14 @@ section('導入から公開まで');
     /\d+\/\d+\n午前 \S+さん\n午後 \S+さん/.test(groupText), groupText);
   check('管理者に完了を返す', lastReplyText(env).includes('これで完了です'));
   check('段階は公開済み', ctx.state_().stage === '公開済み');
+
+  // 出したあとは画面から直せない
+  const late = ctx.webSaveShift(keyOf(env, 'Uadmin'), '2026-09',
+    [{ day: ctx.readShift_('2026-09').rows[0].day, am: '' }]);
+  check('公開後は当番表を直せない',
+    late.ok === false && late.text.includes('もう直せません'), JSON.stringify(late));
+  check('公開後は画面もひらけない',
+    openPage(env, 'Uadmin').includes('いまひらける画面はありません'));
 }
 
 // ---------------------------------------------------------------- 未追加者
@@ -440,6 +532,35 @@ section('回答の受け付け');
     memberPage.includes('"can":' + JSON.stringify(workDays)), memberPage);
   check('0 日のときは画面で聞き返す',
     memberPage.includes('もう一度〔確定〕を押してください'), memberPage);
+
+  // 画面のなかの動きも確かめる
+  {
+    const page = runPage(memberPage);
+    const cells = [];
+    page.nodes.cal.children.slice(1).forEach(w => w.children.forEach(c => {
+      if (c.className !== 'blank') cells.push(c);
+    }));
+    check('その月の日数ぶんのマスが出る', cells.length === 30, String(cells.length));
+    check('押せるのは当番の日だけ',
+      JSON.stringify(cells.filter(c => !c.disabled).map(c => Number(c.textContent)))
+        === JSON.stringify(workDays),
+      JSON.stringify(cells.filter(c => !c.disabled).map(c => Number(c.textContent))));
+
+    // 押して緑にして〔確定〕まで
+    const first = cells.find(c => Number(c.textContent) === workDays[0]);
+    first.onclick();
+    check('押すと緑になる', first.className === 'day on', first.className);
+    first.onclick();
+    check('もう一度押すと戻る', first.className === 'day', first.className);
+    check('押しただけでは何も送らない', page.sent.length === 0);
+
+    cells.filter(c => !c.disabled).forEach(c => c.onclick());
+    page.nodes.ok.onclick();
+    check('確定で選んだ日を送る',
+      JSON.stringify(page.sent) === JSON.stringify([['webAnswer', keyOf(env, 'Ualice'), '2026-09', workDays]]),
+      JSON.stringify(page.sent));
+    check('送信中は押せなくなる', page.nodes.ok.disabled === true);
+  }
 
   // 0 日で確定（聞き返しは画面のなかで済ませている）
   const zero = answer(env, 'Ualice', '2026-09', []);
@@ -1596,6 +1717,211 @@ section('おかしなボタンを押されたとき');
     ctx.webAnswer('', '2026-09', days).ok === false);
   check('鍵ちがいでは回答できない',
     ctx.webAnswer('uuid-9999-0000-0000-000000000000', '2026-09', days).ok === false);
+}
+
+section('画面の見た目の決まりがぶつからないか');
+{
+  // 同じ決まりを二度書くと、あとの 1 つが上書きしきれずに形が崩れる。
+  // 当番表の画面にカレンダーの .day（height:46px）が混ざって、
+  // 日カードの中身がはみ出した。同じことを二度やらないための番人
+  const env = newEnv(new RealDate(2026, 7, 15, 9, 0));
+  const { ctx } = env;
+  joinGroupWith(env, PEOPLE);
+  PEOPLE.forEach(p => follow(env, p.id));
+
+  const selectors = html => {
+    const css = html.match(/<style>([\s\S]*?)<\/style>/)[1];
+    return css.split('}').map(b => b.split('{')[0].trim()).filter(x => x);
+  };
+  const dup = html => {
+    const all = selectors(html);
+    return [...new Set(all.filter((x, i) => all.indexOf(x) !== i))];
+  };
+
+  check('開けないときの画面', dup(ctx.doGet({ parameter: {} }).getContent()).length === 0,
+    JSON.stringify(dup(ctx.doGet({ parameter: {} }).getContent())));
+
+  startFor(env, '2026-09');
+  postback(env, 'a=part&v=2', 'Uadmin');
+  postback(env, 'a=num&v=3', 'Uadmin');
+  const draft = openPage(env, 'Uadmin');
+  check('日程を直す画面', dup(draft).length === 0, JSON.stringify(dup(draft)));
+
+  fixCurrent(env);
+  const ask = openPage(env, 'Ualice');
+  check('都合を選ぶ画面', dup(ask).length === 0, JSON.stringify(dup(ask)));
+
+  PEOPLE.forEach(p => answer(env, p.id, '2026-09', ctx.state_().days));
+  const editor = openPage(env, 'Uadmin');
+  check('担当を入れ替える画面', dup(editor).length === 0, JSON.stringify(dup(editor)));
+  check('当番表の画面にカレンダーの決まりを混ぜない',
+    !editor.includes('.week{') && !editor.includes('.day{'),
+    selectors(editor).join(' '));
+  check('カレンダーの画面には当番表の決まりを混ぜない', !ask.includes('.dcard{'));
+
+  // 1 日 1 カード。中は縦に積む（横に並べると幅が狭いときにはみ出す）
+  const two = runPage(editor).nodes;
+  const cards = two.list.children;
+  check('日ごとにカードになる',
+    cards.length === 3 && cards.every(c => c.className === 'dcard'),
+    JSON.stringify(cards.map(c => c.className)));
+  const slots = kids(cards[0], 'slot');
+  check('2部制は枠が 2 つ', slots.length === 2);
+  check('ラベルは午前・午後',
+    slots.map(x => kids(x, 'lab')[0].textContent).join('/') === '午前/午後');
+  check('select は .pick のなかに 1 つ',
+    slots.every(x => kids(x, 'pick').length === 1
+      && kids(x, 'pick')[0].children.length === 1
+      && kids(x, 'pick')[0].children[0].tag === 'select'));
+  check('日付とラベルと select が縦に並ぶ',
+    cards[0].children.map(c => c.className).join(',') === 'dhead,slot,slot,why,alert',
+    cards[0].children.map(c => c.className).join(','));
+
+  // プルダウンは名簿の全員。その日に来られる人は別に並べて見せる
+  const opts = kids(slots[0], 'pick')[0].children[0].children.map(o => o.value);
+  const all = PEOPLE.map(p => p.name);
+  check('プルダウンは空欄＋名簿の全員',
+    JSON.stringify(opts) === JSON.stringify([''].concat(all)), JSON.stringify(opts));
+  check('その日に来られない人も選べる',
+    all.every(n => opts.indexOf(n) >= 0));
+
+  // 来られる人は名前ごとのチップ。1 行に並べると人数が多いとはみ出す
+  const why = kids(cards[0], 'why')[0];
+  check('見出しは「来られる人」だけ',
+    kids(why, 'whyhead')[0].textContent === '来られる人',
+    kids(why, 'whyhead')[0].textContent);
+  const chips = kids(why, 'chips')[0].children;
+  check('名前は 1 つずつチップになる',
+    chips.length === all.length && chips.every(c => c.className === 'chip'),
+    JSON.stringify(chips.map(c => c.textContent)));
+  check('チップの中身は名前だけ',
+    chips.every(c => all.indexOf(c.textContent) >= 0),
+    JSON.stringify(chips.map(c => c.textContent)));
+  const style = editor.match(/<style>([\s\S]*?)<\/style>/)[1];
+  check('はみ出したら折り返す', style.includes('.chips{display:flex;flex-wrap:wrap'));
+  check('長い名前 1 つでも幅に収まる',
+    style.includes('.chip{min-width:0;max-width:100%') && style.includes('overflow-wrap:anywhere'));
+
+  // 手で直すときは午前と午後が同じ人でもよい（自動割り当てでは禁じたまま）
+  const am = kids(slots[0], 'pick')[0].children[0];
+  const pm = kids(slots[1], 'pick')[0].children[0];
+  am.value = all[0]; pm.value = all[0]; pm.onchange();
+  check('同じ人にしても止めない',
+    kids(cards[0], 'alert')[0].textContent === '', kids(cards[0], 'alert')[0].textContent);
+  check('赤くもしない',
+    slots[0].className === 'slot' && slots[1].className === 'slot',
+    slots[0].className + ' / ' + slots[1].className);
+  check('同じ人のまま保存に載る',
+    JSON.stringify(runPage(editor).sent) === '[]');
+
+  // 決まっていない枠は知らせる
+  pm.value = ''; pm.onchange();
+  check('空欄は知らせる',
+    kids(cards[0], 'alert')[0].textContent === '午後が決まっていません。',
+    kids(cards[0], 'alert')[0].textContent);
+  check('空欄の枠は赤くする', slots[1].className === 'slot warn');
+}
+
+section('1部制の当番表の画面');
+{
+  const env = newEnv(new RealDate(2026, 7, 15, 9, 0));
+  const { ctx } = env;
+  joinGroupWith(env, PEOPLE);
+  PEOPLE.forEach(p => follow(env, p.id));
+  startFor(env, '2026-09');
+  postback(env, 'a=part&v=1', 'Uadmin');
+  postback(env, 'a=num&v=3', 'Uadmin');
+  fixCurrent(env);
+  PEOPLE.forEach(p => answer(env, p.id, '2026-09', ctx.state_().days));
+
+  const page = openPage(env, 'Uadmin');
+  const one = runPage(page).nodes;
+  const cards = one.list.children;
+  check('日ごとにカードになる', cards.length === 3 && cards.every(c => c.className === 'dcard'));
+  const slots = kids(cards[0], 'slot');
+  check('1部制は枠が 1 つ', slots.length === 1);
+  check('1部制はラベルを置かない', kids(slots[0], 'lab').length === 0);
+  check('select は出る', kids(slots[0], 'pick')[0].children[0].tag === 'select');
+  check('保存のボタンは出る', page.includes('この内容で保存'));
+}
+
+section('前の版の名簿に鍵を入れる');
+{
+  const env = newEnv(new RealDate(2026, 7, 15, 9, 0));
+  const { ctx } = env;
+  joinGroupWith(env, PEOPLE);
+  PEOPLE.forEach(p => follow(env, p.id));
+
+  // 前の版の名簿には鍵の列そのものが無い。列を足しただけの状態を作る
+  const roster = env.gas.book.getSheetByName('名簿');
+  PEOPLE.forEach(p => roster.getRange(ctx.rosterFind_(p.id).row, 6).setValue(''));
+  check('鍵が空になった', ctx.members_().every(p => !p.key));
+
+  ctx.setup();
+  check('setup() が鍵を入れる', ctx.members_().every(p => p.key.length === 32),
+    JSON.stringify(ctx.members_().map(p => p.key)));
+  check('人ごとに別の鍵', new Set(ctx.members_().map(p => p.key)).size === 3);
+
+  ctx.setup();
+  const keys = ctx.members_().map(p => p.key);
+  ctx.setup();
+  check('もう一度 setup() しても作り直さない',
+    JSON.stringify(ctx.members_().map(p => p.key)) === JSON.stringify(keys));
+
+  // 鍵が空のままでも、カレンダーを送るときに作って送る
+  PEOPLE.forEach(p => roster.getRange(ctx.rosterFind_(p.id).row, 6).setValue(''));
+  startFor(env, '2026-09');
+  postback(env, 'a=part&v=1', 'Uadmin');
+  postback(env, 'a=num&v=2', 'Uadmin');
+  env.gas.sent.length = 0;
+  fixCurrent(env);
+  check('鍵が空でも入口つきで送る',
+    PEOPLE.every(p => pushTextTo(env, p.id).includes('AKfyTEST/exec?k=')),
+    pushTextTo(env, PEOPLE[0].id));
+  check('「画面をひらけませんでした」を送らない',
+    !JSON.stringify(pushes(env)).includes('画面をひらけませんでした'));
+  check('送った先の鍵が名簿に残る', ctx.members_().every(p => p.key.length === 32));
+}
+
+section('あとから合言葉の行を足すとき');
+{
+  const env = newEnv(new RealDate(2026, 7, 15, 9, 0));
+  const { ctx } = env;
+  check('新しいシートには合言葉が入る', ctx.settings_().webhookSecret.length === 32);
+
+  // 前の版のシートには合言葉の行がない。あとから足すときは空にする。
+  // 値を入れると、LINE に登録済みの URL には ?w= が無いので、その場で Bot が黙る
+  const sh = env.gas.book.getSheetByName('設定');
+  const at = sh.getDataRange().getValues()
+    .findIndex(r => String(r[0]).trim() === 'webhook合言葉') + 1;
+  sh.deleteRow(at);
+  check('行を消せた', ctx.settings_().webhookSecret === '');
+
+  ctx.setup();
+  check('あとから足すときは空のまま', ctx.settings_().webhookSecret === '');
+  check('行そのものは戻る', sh.getDataRange().getValues()
+    .some(r => String(r[0]).trim() === 'webhook合言葉'));
+  ctx.setup();
+  check('もう一度 setup() しても埋めない', ctx.settings_().webhookSecret === '');
+}
+
+section('エディタから実行したときの URL');
+{
+  // ScriptApp.getService().getUrl() は、エディタから実行すると開発モードの
+  // URL（/dev）を返す。自分が Google にログインしているときしか開けないので、
+  // LINE にもメンバーにも渡せない。掴んだら空として扱う
+  const env = newEnv(new RealDate(2026, 7, 15, 9, 0));
+  const { ctx } = env;
+  env.gas.webAppUrl = 'https://script.google.com/macros/s/AKfyTEST/dev';
+
+  check('/dev は使わない', ctx.webAppUrl_() === '', ctx.webAppUrl_());
+  check('/dev から Webhook URL を組み立てない', ctx.webhookUrl_() === '', ctx.webhookUrl_());
+  check('/dev の入口 URL も作らない', ctx.entryUrl_('kagi') === '', ctx.entryUrl_('kagi'));
+
+  env.gas.webAppUrl = 'https://script.google.com/macros/s/AKfyTEST/exec';
+  check('/exec なら使う',
+    ctx.webhookUrl_() === 'https://script.google.com/macros/s/AKfyTEST/exec?w='
+      + ctx.settings_().webhookSecret, ctx.webhookUrl_());
 }
 
 section('ウェブアプリの URL が取れないとき');

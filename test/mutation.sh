@@ -89,7 +89,7 @@ run 09_flow.gs '  if (!s.groupId) return;' '  if (false) return;' 'グループI
 section '受け口'
 run 10_webhook.gs '  if (!isAdmin) return;' '' '管理者以外にも管理者の操作をさせる'
 run 10_webhook.gs "    case 'publish': return onPublish_(ev.replyToken);" '' 'グループに送るボタンを効かなくする'
-run 08_messages.gs "  return uri_('担当を入れ替える（表を開く）', sheetUrl_(yearSheetName_(ym)));" "  return postback_('担当を入れ替える（表を開く）', 'a=open');" '表を開くのに 1 手はさむ'
+run 08_messages.gs "  if (url) actions.push(uri_('担当を入れ替える', url));" '' '当番表から入れ替えの入口を消す'
 run 11_daily.gs '  if (day === s.dueDay) sendDue_(now, s);' '' '締切日の連絡をしない'
 run 11_daily.gs '  if (day === s.noticeDay) sendNotice_(now, s);' '' 'お知らせを送らない'
 
@@ -241,18 +241,52 @@ run 12_web.gs '  if (person.userId === settings_().adminId && st.stage === STAGE
 run 12_web.gs '  if (st.stage === STAGE.回答受付中 && person.inGroup && person.friend) {' '  if (false) {' 'メンバーの画面をひらけなくする'
 
 section '鍵と入口'
+run 01_setup.gs '  fillKeys_();' '' '前の版の名簿に鍵を入れない'
+run 09_flow.gs '    var key = p.key || keyFor_(p.userId);' '    var key = p.key;' '鍵が空の人に入口を作らない'
 run 03_store.gs '  var key = found.key || newKey_();' '  var key = newKey_();' '名簿を書くたびに鍵を作り直す'
 run 00_config.gs "  return url + (url.indexOf('?') >= 0 ? '&' : '?') + 'k=' + encodeURIComponent(key);" '  return url;' '入口 URL に鍵を載せない'
+run 00_config.gs 'if (/\/dev$/.test(url)) return' 'if (false) return' '開発モードの URL を配ってしまう'
 run 07_ui.gs '    row.push(dayCell_(d, marked[d] === true, pressable === null || pressable[d] === true, null));' "    row.push(dayCell_(d, marked[d] === true, pressable === null || pressable[d] === true, function (n) { return 'a=atog&d=' + n; }));" 'カードの日付をまた押せるようにする'
 run 10_webhook.gs "    if (!webhookAllowed_(e)) return ContentService.createTextOutput('NG');" '' 'webhook の合言葉を確かめない'
 run 10_webhook.gs '  var want = settings_().webhookSecret;
   if (!want) return true;' '  var want = settings_().webhookSecret;
   if (true) return true;' '合言葉を決めても素通しにする'
-run 01_setup.gs '  if (settings_().webhookSecret) return;
-  setSetting_(' "  if (true) return;
-  setSetting_(" 'setup() が合言葉を作らない'
-run 01_setup.gs '  if (settings_().webhookSecret) return;' '' '実行のたびに合言葉を作り直す'
+run 01_setup.gs "    ['webhook合言葉', newKey_()," "    ['webhook合言葉', ''," '新しいシートに合言葉を作らない'
+run 01_setup.gs "  ensureSettingRow_('webhook合言葉', ''," "  ensureSettingRow_('webhook合言葉', newKey_()," '動いている Bot にも合言葉を作ってしまう'
 run 00_config.gs "  return base + '?w=' + encodeURIComponent(settings_().webhookSecret);" '  return base;' '読み上げる Webhook URL に合言葉を付けない'
 run 08_messages.gs '  if (!url) return msgNoEntry_();' '' '入口が無くてもカードを組み立てる'
+
+
+section '担当を入れ替える画面'
+run 12_web.gs "  return '<style>' + pageCss_() + shiftCss_() + '</style>'" "  return '<style>' + pageCss_() + calendarCss_() + shiftCss_() + '</style>'" 'カレンダーの決まりを当番表の画面にも混ぜる'
+run 12_web.gs "'var am=slot(row,\"am\",DATA.twoPart?\"午前\":\"\");card.appendChild(am);'," "'var am=slot(row,\"am\",\"午前\");card.appendChild(am);'," '1部制にもラベルを置く'
+run 12_web.gs "'if(label){var lab=document.createElement(\"span\");lab.className=\"lab\";'," "'if(true){var lab=document.createElement(\"span\");lab.className=\"lab\";'," 'ラベルの有無を見ない'
+run 12_web.gs "'var pick=document.createElement(\"div\");pick.className=\"pick\";'," "'var pick=document.createElement(\"div\");pick.className=\"\";'," 'select を .pick で包まない'
+run 12_web.gs "'var opts=[\"\"].concat(DATA.all);'," "'var opts=[\"\"].concat(row0.cands);'," 'プルダウンをその日に来られる人だけに絞る'
+run 12_web.gs "'.chips{display:flex;flex-wrap:wrap;gap:6px}'," "'.chips{display:flex;gap:6px}'," '来られる人を折り返さない'
+run 12_web.gs "'able.forEach(function(n){var c=document.createElement(\"span\");'," "'able.slice(0,1).forEach(function(n){var c=document.createElement(\"span\");'," '来られる人を 1 人しか並べない'
+run 12_web.gs "'c.className=n?\"chip\":\"chip none\";c.textContent=n||\"いません\";chips.appendChild(c);});'," "'c.className=n?\"\":\"chip none\";c.textContent=n||\"いません\";chips.appendChild(c);});'," '来られる人をチップにしない'
+run 12_web.gs "'if(pm){pm.className=\"slot\"+(p?\"\":\" warn\");}'," "'if(pm){pm.className=\"slot\"+(p?\"\":\" warn\")+(a===p?\" warn\":\"\");}'," '手で直すときも午前と午後が同じだと赤くする'
+run 12_web.gs "'var pm=DATA.twoPart?slot(row,\"pm\",\"午後\"):null;if(pm){card.appendChild(pm);}'," "'var pm=slot(row,\"pm\",\"午後\");if(pm){card.appendChild(pm);}'," '1部制にも午後の枠を出す'
+run 12_web.gs '  if (person.userId === settings_().adminId && st.stage === STAGE.確認待ち) {' '  if (false) {' '当番表の画面をひらけなくする'
+run 12_web.gs '    if (st.stage !== STAGE.確認待ち || st.ym !== ym) {' '    if (false) {' '確認待ちでなくても当番表を書き換えられる'
+run 12_web.gs '    if (!person || !s.adminId || person.userId !== s.adminId) {
+      return ng_('"'"'この画面はもう使えません。'"'"');
+    }
+
+    var st = state_();
+    if (st.stage !== STAGE.確認待ち' '    if (false) {
+      return ng_('"'"'この画面はもう使えません。'"'"');
+    }
+
+    var st = state_();
+    if (st.stage !== STAGE.確認待ち' 'メンバーの鍵でも当番表を書き換えられる'
+run 12_web.gs '      if (name === '"''"' || ok[name] === true || name === row[k]) one[k] = name;' '      one[k] = name;' '名簿にない名前も当番表に書く'
+run 12_web.gs '    push_(s.adminId, msgShift_(ym, part, shift.rows,' '    if (false) push_(s.adminId, msgShift_(ym, part, shift.rows,' '直したあとの当番表を管理者に送らない'
+run 03_store.gs '    if (slot.am !== undefined && slot.am !== row.am) {' '    if (slot.am !== undefined) {' '直していない枠にも書き込む'
+run 03_store.gs '  var byDay = Object.create(null);
+  readShift_(ym).rows.forEach(function (r) { byDay[r.day] = r; });' '  var byDay = Object.create(null);
+  readShift_(ym).rows.forEach(function (r) { byDay[r.day] = r; });
+  byDay = new Proxy(byDay, { get: function (t, k) { return t[k] || { row: 2, am: '"''"', pm: '"''"' }; } });' '当番表にない日でも書き込む'
 
 report

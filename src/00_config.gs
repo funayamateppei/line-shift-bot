@@ -102,20 +102,30 @@ function settings_() {
 }
 
 /**
- * ウェブアプリ（カレンダーを開く画面）の URL。
- * まだ公開していなければ空。カードは uri ボタンを作れないので、
- * 代わりに「画面をひらけませんでした」と伝える。
+ * ウェブアプリ（カレンダーを開く画面）の URL。まだ公開していなければ空。
+ *
+ * webhook や画面の処理中に呼べば、公開した URL（/exec）が返る。
+ * ところが**エディタから実行したときは開発モードの URL（/dev）が返る**。
+ * /dev は自分が Google にログインしているときしか開けないので、LINE にも
+ * メンバーにも渡せない。/exec とは ID そのものが違うので作り替えもできない。
+ * 空として扱い、「画面をひらけませんでした」と言わせる。
  */
 function webAppUrl_() {
+  var url;
   try {
-    return String(ScriptApp.getService().getUrl() || '');
+    url = String(ScriptApp.getService().getUrl() || '');
   } catch (e) {
     log_('ウェブアプリの URL が取れませんでした: ' + e);
     return '';
   }
+  if (/\/dev$/.test(url)) return '';
+  return url;
 }
 
-/** LINE に登録する Webhook URL。合言葉つき */
+/**
+ * LINE に登録する Webhook URL。合言葉つき。
+ * エディタから実行したときは組み立てられない（上のとおり）ので空を返す。
+ */
 function webhookUrl_() {
   var base = webAppUrl_();
   if (!base) return '';

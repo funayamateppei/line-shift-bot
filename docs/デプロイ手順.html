@@ -124,7 +124,7 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:24px}
 <li><a href="https://script.google.com/">https://script.google.com/</a> で「新しいプロジェクト」</li>
 <li>プロジェクト名を付ける（例：当番Bot）</li>
 <li>リポジトリで <code>node tools/bundle.js</code> を実行して <code>dist/コード.gs</code> を作る
-  <ul><li>GAS のエディタにはフォルダを置けないので、<code>src/</code> の 12 ファイルを 1 枚にまとめます</li></ul></li>
+  <ul><li>GAS のエディタにはフォルダを置けないので、<code>src/</code> の 13 ファイルを 1 枚にまとめます</li></ul></li>
 <li>既定の <code>コード.gs</code> の中身を消して、できた <code>dist/コード.gs</code> を<strong>まるごと貼り付ける</strong>
   <ul><li>貼るのは 1 回だけ</li><li><code>appsscript.json</code> は <span class="ui">プロジェクトの設定</span> → 「appsscript.json をエディタで表示」をオンにしてから、リポジトリの <code>src/appsscript.json</code> の中身を貼る</li></ul></li>
 <li>貼ったコードの先頭にある 2 つの値を<strong>自分のものに書き換える</strong>（空で置いてあります）
@@ -162,7 +162,8 @@ var CHANNEL_ACCESS_TOKEN = '（<span class="keep">チャネルアクセストー
 <li>LINE Developers のチャネル → <span class="ui">Messaging API 設定</span> → <strong>Webhook設定</strong></li>
 <li><strong>Webhook URL</strong> に <span class="keep">ウェブアプリ URL</span> と <span class="keep">合言葉</span> をつなげたものを貼って「更新」
 <pre>https://script.google.com/macros/s/xxxxxxxx/exec?w=合言葉</pre>
-  <div class="important"><strong><code>?w=</code> を忘れると Bot は何も返しません。</strong> 手順 4 のあとに <code>setup()</code> をもう一度実行すると、そのまま貼れる形の URL を実行ログに出します（何度実行しても合言葉は作り直しません）。</div>
+  <div class="important"><strong><code>?w=</code> を忘れると Bot は何も返しません。</strong><br>
+  <strong>必ず <code>/exec</code> で終わる URL を使ってください。</strong> <code>/dev</code> で終わる URL は自分が Google にログインしているときしか開けないので、LINE からは到達できず、<strong>GAS の実行ログにも何も残りません</strong>。<code>/exec</code> の URL は〔デプロイを管理〕で見られます。</div>
   <div class="note">Official Account Manager の <span class="ui">設定</span> → <span class="ui">Messaging API</span> にも同じ Webhook URL の欄があります。<strong>どちらも同じ設定</strong>で、片方に入れればもう片方にも入ります。ただし<strong>すぐには表示に反映されません</strong>。空に見えたらページをリロードしてください（「検証」ボタンは LINE Developers 側にしかありません）。</div></li>
 <li>「Webhook の利用」を <strong>オン</strong></li>
 <li>Official Account Manager の <span class="ui">設定</span> → <span class="ui">応答設定</span> に戻り、<strong>Webhook</strong> を <strong>オン</strong>にする</li>
@@ -237,9 +238,13 @@ var CHANNEL_ACCESS_TOKEN = '（<span class="keep">チャネルアクセストー
 <h2>更新のしかた</h2>
 <ol>
 <li>GAS にコードを貼り直す</li>
-<li><span class="ui">デプロイを管理</span> → 鉛筆 → 「新バージョン」→ デプロイ</li>
+<li><span class="ui">デプロイを管理</span> → 鉛筆 → 「新バージョン」→ デプロイ
+  <div class="important">「新しいデプロイ」を作らないでください。URL が変わり、Webhook も、メンバーに配ってある画面の URL も、すべて入れ直しになります。</div></li>
+<li>関数選択で <code>setup</code> を選び <span class="ui">実行</span>
+  <ul><li>シートに列や行が増えていれば足します。<strong>既にあるデータは消えません</strong></li>
+  <li>実行ログに <strong>webhook合言葉</strong> の値が出ます</li></ul></li>
 </ol>
-<p>シートのデータはそのまま残ります。</p>
+<p>シートのデータはそのまま残ります。<strong>Webhook URL の入れ直しも要りません</strong>（<code>setup()</code> は、すでに入っている合言葉を書き換えません。まだ合言葉を使っていない Bot に勝手に付けることもしません）。</p>
 </section>
 
 </main>

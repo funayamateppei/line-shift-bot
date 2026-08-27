@@ -141,25 +141,28 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:24px}
 午前 Cさん
 午後 —
 …</div>
-<p><span class="btn">グループに送る</span> <span class="btn">担当を入れ替える（表を開く）</span></p>
+<p><span class="btn">グループに送る</span> <span class="btn">担当を入れ替える</span></p>
 <ul>
 <li>「—」は担当が決まらなかった枠です（その日に出られる人がいない）</li>
 <li>そのままでよければ <span class="btn">グループに送る</span></li>
-<li>直したいときは <span class="btn">担当を入れ替える（表を開く）</span></li>
+<li>直したいときは <span class="btn">担当を入れ替える</span></li>
 </ul>
 
 <h3>2-4. 当番表を直す</h3>
-<p><span class="btn">担当を入れ替える（表を開く）</span> を押すと、そのままスプレッドシートが開きます。</p>
+<p><span class="btn">担当を入れ替える</span> を押すと、LINE のなかで画面がひらきます。日程を直すときと同じ形です。</p>
 <ol>
-<li>リンクを開く</li>
-<li><span class="cell green">薄い緑のセル</span>（午前・午後）を押すと ▼ が出ます</li>
-<li>▼ から人を選ぶ。<strong>その日に出られる人しか出ません</strong></li>
-<li><span class="cell red">赤くなっているセル</span> は直すところです。担当がいない枠か、午前と午後が同じ人になっている枠です</li>
-<li>直し終わったら LINE に戻って <span class="btn">グループに送る</span></li>
+<li>日ごとに 午前・午後 の ▼ が並びます。押して人を選ぶだけです</li>
+<li><strong>名簿の全員から選べます。</strong> その日に出られると答えていない人も選べます</li>
+<li>各日の下に「来られる人」として、その日に都合がつくと答えた人が並びます</li>
+<li><strong>午前と午後を同じ人にしてもかまいません。</strong> 人が足りない日に、その人に通してもらうときに使えます（Bot が自動で割り当てるときは、同じ人を 1 日に 2 回入れません）</li>
+<li><span class="cell red">赤くなっている枠</span> は担当が決まっていない枠です</li>
+<li>選び終わったら <span class="btn">この内容で保存</span></li>
 </ol>
+<div class="note"><strong>▼ を押しても LINE には何も届きません。</strong> 納得いくまで直せます。保存を押したときだけ書き込まれ、<strong>直したあとの当番表が LINE に届きます</strong>。そのメッセージに <span class="btn">グループに送る</span> が付いているので、そのまま出せます。</div>
 <p>誰も出られない日は、Bot がくれた次の文をグループに送って協力を募ってください。</p>
 <div class="bubble copy">2026年9月6日(午後)、2026年9月20日の担当が決まっていません。ご都合がつく方は連絡をお願いします。</div>
-<p>手を挙げた人を表に入れて（▼ に出ない人は直接入力）、<span class="btn">グループに送る</span> を押してください。</p>
+<p>手を挙げた人を ▼ から選んで、<span class="btn">この内容で保存</span> → <span class="btn">グループに送る</span> を押してください。</p>
+<div class="note">▼ に出るのは名簿にいる人だけです。名簿にいない人を入れることはできません。</div>
 
 <h3>2-5. グループに送る</h3>
 <p><span class="btn">グループに送る</span> を押すと、<strong>表のいまの内容</strong>がそのままグループに届きます。これでその月は完了です。</p>
@@ -186,7 +189,7 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:24px}
 <tr><td>メンバーが回答を間違えた</td><td>集計前なら、もう一度 <span class="btn">都合を選ぶ</span> から画面をひらいて <span class="btn">確定</span> すれば上書きされる。前に選んだ日が入った状態でひらきます。集計後は管理者が表で直す</td></tr>
 <tr><td>メンバーが「画面がひらかない／この画面はひらけませんと出る」と言う</td><td>古いカードを押している。その人が Bot に何か一言送れば、新しいカードが出しなおされる</td></tr>
 <tr><td>メンバーが「押したのに反映されない」と言う</td><td>画面の <span class="btn">確定</span> を押していない。押すと「受け付けました」と出る</td></tr>
-<tr><td>当番表を送ったあとに変えたい</td><td>スプレッドシートを直して、グループには自分で連絡する（Bot は送り直さない）</td></tr>
+<tr><td>当番表を送ったあとに変えたい</td><td>送ったあとは画面から直せません。スプレッドシートを直して、グループには自分で連絡する（Bot は送り直さない）</td></tr>
 <tr><td>15 日の連絡が来なかった</td><td><span class="btn">開始</span> を押せばいつでも始められる。連絡はあくまで忘れ防止</td></tr>
 </table></div>
 </section>

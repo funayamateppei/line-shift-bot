@@ -107,7 +107,9 @@ function fixDays_(ym, days) {
 function sendCalendars_(ym, workDays) {
   var base = webAppUrl_();
   members_().forEach(function (p) {
-    push_(p.userId, msgAskAvailability_(ym, workDays, entryUrl_(p.key, base)));
+    // 鍵は setup() で入るが、そこを通っていない行が残っていても送れるようにする
+    var key = p.key || keyFor_(p.userId);
+    push_(p.userId, msgAskAvailability_(ym, workDays, entryUrl_(key, base)));
   });
 
   var waiting = notAdded_();
@@ -322,7 +324,10 @@ function aggregate_(st) {
   saveState_({ ym: st.ym, stage: STAGE.確認待ち, part: st.part, days: st.days });
 
   var s = settings_();
-  if (s.adminId) push_(s.adminId, msgShift_(st.ym, st.part, rows, '全員の回答がそろいました。'));
+  if (s.adminId) {
+    push_(s.adminId,
+      msgShift_(st.ym, st.part, rows, '全員の回答がそろいました。', adminEntryUrl_()));
+  }
 }
 
 /**
@@ -348,5 +353,5 @@ function displayNames_(people) {
 function shiftMessages_(ym, lead) {
   var st = state_();
   var shift = readShift_(ym);
-  return msgShift_(ym, shift.part || st.part, shift.rows, lead);
+  return msgShift_(ym, shift.part || st.part, shift.rows, lead, adminEntryUrl_());
 }

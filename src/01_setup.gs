@@ -16,32 +16,46 @@ function setup() {
   ensureAnswerSheet_();
   ensureYearSheet_(ymOf_(new Date()));
   migrate_();
-  ensureSecret_();
   removeDefaultSheet_();
 
   log_('セットアップ完了');
-  log_('webhook合言葉：' + settings_().webhookSecret);
-  var url = webhookUrl_();
-  log_(url
-    ? 'LINE の Webhook URL には、次をそのまま登録してください：\n' + url
-    : 'ウェブアプリを公開したら、その URL の末尾に「?w=」と上の合言葉を付けて'
-      + ' LINE の Webhook URL に登録してください。');
+  reportWebhook_();
 }
 
 /**
- * webhook の合言葉。無ければ作る。
+ * webhook の合言葉と、LINE に登録する URL を読み上げる。
  *
  * GAS ではヘッダが読めず、LINE の署名を検証できない。守りはウェブアプリの
  * URL が知られていないことだけだったが、日付を選ぶ画面の URL をメンバーに
  * 配るようになって、その前提は使えなくなった（12_web.gs）。代わりの検査。
  *
- * 人に決めさせると誰も決めないので、setup() が作って読み上げる。
- * 一度作った値は変えない。作り直したいときは、設定シートのセルを空にして
- * setup() をもう一度実行し、LINE の Webhook URL も貼り直す。
+ * 合言葉を作るのは、設定シートを新しく作るときだけ（ensureSettingsSheet_）。
+ * すでに動いている Bot に setup() を実行しても作らない。作ってしまうと、
+ * LINE に登録してある URL には ?w= が無いので、その場で Bot が黙る。
+ * 同じ理由で、空にしてあるセルを埋め直すこともしない（空＝使わない、という意思表示）。
  */
-function ensureSecret_() {
-  if (settings_().webhookSecret) return;
-  setSetting_('webhook合言葉', newKey_());
+function reportWebhook_() {
+  var secret = settings_().webhookSecret;
+  if (!secret) {
+    log_('webhook合言葉：なし（誰でも webhook を叩ける状態です）');
+    log_('付けるときは、設定シートの「webhook合言葉」に推測できない文字列を入れ、'
+      + 'LINE の Webhook URL の末尾に「?w=」とその値を付けて登録し直してください。');
+    return;
+  }
+  log_('webhook合言葉：' + secret);
+
+  var url = webhookUrl_();
+  if (url) {
+    log_('LINE の Webhook URL には、次をそのまま登録してください：\n' + url);
+    return;
+  }
+
+  // エディタから実行すると開発モードの URL（/dev）しか取れない。
+  // それを読み上げると、LINE から到達できない URL を貼らせることになる
+  log_('LINE の Webhook URL は、〔デプロイを管理〕にある **/exec で終わる URL** の末尾に');
+  log_('  ?w=' + secret);
+  log_('をつなげたものです。ここでは組み立てられません'
+    + '（エディタから実行すると開発用の /dev が返るため）。');
 }
 
 /**
@@ -58,8 +72,29 @@ function migrate_() {
     roster.setColumnWidth(6, 260);
     roster.getRange(2, 6, 999, 1).setFontSize(10).setFontColor(COLOR.補足文字);
   }
+  fillKeys_();
+  // すでに動いている Bot を黙らせないよう、あとから足すときは空にしておく
   ensureSettingRow_('webhook合言葉', '',
-    'setup() が作る。LINE の Webhook URL の末尾に ?w=この値 を付ける');
+    'LINE の Webhook URL の末尾に ?w=この値 を付ける。空なら確かめない');
+}
+
+/**
+ * 鍵の入っていない行に鍵を入れる。
+ *
+ * 前の版で作った名簿には鍵の列そのものが無い。列を足しただけでは中身が空で、
+ * 入口 URL を作れない＝その人には「画面をひらけませんでした」しか届かない。
+ * 名簿を書き直す出来事（発言・友だち追加など）が起きるまで直らないので、
+ * setup() のときにまとめて入れる。
+ */
+function fillKeys_() {
+  var sh = sheet_(SHEET.名簿);
+  var filled = 0;
+  rosterAll_().forEach(function (p) {
+    if (p.key) return;
+    sh.getRange(p.row, 6).setValue(newKey_());
+    filled++;
+  });
+  if (filled) log_(filled + ' 人ぶんの鍵を作りました');
 }
 
 /** 設定シートにその項目が無ければ足す */
@@ -119,7 +154,7 @@ function ensureSettingsSheet_() {
     ['グループID', '', 'Bot をグループに招待すると自動で入る'],
     ['お知らせ日', DEFAULT_NOTICE_DAY, '管理者に「始めますか」を送る日'],
     ['締切日', DEFAULT_DUE_DAY, '未回答の一覧を管理者に送る日'],
-    ['webhook合言葉', '', 'setup() が作る。LINE の Webhook URL の末尾に ?w=この値 を付ける']
+    ['webhook合言葉', newKey_(), 'LINE の Webhook URL の末尾に ?w=この値 を付ける。空なら確かめない']
   ]);
   styleHeader_(sh, 3);
   sh.getRange(2, 2, 5, 1).setBackground(COLOR.編集可);
@@ -268,12 +303,6 @@ function ensureYearSheet_(ym) {
     // 担当が決まっていない枠
     SpreadsheetApp.newConditionalFormatRule()
       .whenFormulaSatisfied('=AND($B2<>"",D2="")')
-      .setBackground(COLOR.空欄警告)
-      .setRanges([sh.getRange(2, 4, rows, 2)])
-      .build(),
-    // 午前と午後が同じ人になってしまったとき
-    SpreadsheetApp.newConditionalFormatRule()
-      .whenFormulaSatisfied('=AND($B2<>"",$D2<>"",$D2=$E2)')
       .setBackground(COLOR.空欄警告)
       .setRanges([sh.getRange(2, 4, rows, 2)])
       .build(),

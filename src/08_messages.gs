@@ -165,7 +165,7 @@ function msgAskFriendAdd_(ym, people) {
  * 7.1 当番表。
  * lead は先頭に添える 1 行。集計が終わった直後と、あとから見に来たときで変わる。
  */
-function msgShift_(ym, part, rows, lead) {
+function msgShift_(ym, part, rows, lead, url) {
   var messages = [];
   var shortage = shortageCopyText_(ym, part, rows);
   if (shortage) {
@@ -179,19 +179,18 @@ function msgShift_(ym, part, rows, lead) {
   messages.push(text_(
     (lead ? lead + '\n' : '') + ymLabel_(ym) + 'の当番表です。\n' + shiftText_(ym, part, rows)
   ));
-  messages.push(promptFlex_(ymLabel_(ym) + 'の当番表', [], [
-    postback_('グループに送る', 'a=publish'),
-    openSheet_(ym)
-  ]));
+  var actions = [postback_('グループに送る', 'a=publish')];
+  if (url) actions.push(uri_('担当を入れ替える', url));
+  messages.push(promptFlex_(ymLabel_(ym) + 'の当番表', [], actions));
   return withAdminMenu_(messages);
 }
 
 /**
  * 7.2 当番表のシートを開くボタン。
- * URL を直接ひらくので、押してから開くまでに 1 手はさまらない。
+ * 表が日程とそろわなくなったときだけ使う。ふだんの入れ替えは画面（12_web.gs）。
  */
 function openSheet_(ym) {
-  return uri_('担当を入れ替える（表を開く）', sheetUrl_(yearSheetName_(ym)));
+  return uri_('表を開く', sheetUrl_(yearSheetName_(ym)));
 }
 
 /** 7.3 グループへ送る当番表 */
@@ -205,10 +204,7 @@ function msgPublishFailed_(ym) {
     promptFlex_('グループに送れませんでした', [
       'グループに送れませんでした。',
       'しばらく待ってから、もう一度〔グループに送る〕を押してください。'
-    ], [
-      postback_('グループに送る', 'a=publish'),
-      openSheet_(ym)
-    ])
+    ], [postback_('グループに送る', 'a=publish')])
   ]);
 }
 

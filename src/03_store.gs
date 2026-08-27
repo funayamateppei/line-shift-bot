@@ -377,6 +377,39 @@ function removeMonthBlock_(sh, ym) {
 }
 
 /**
+ * 当番表の枠を書き換える。担当を入れ替える画面から呼ぶ。
+ *
+ * 直された枠だけを書く。表全体を書き直さないので、画面をひらいたまま
+ * シートを直されても、触っていない枠は巻き添えにならない。
+ *
+ * slots: [{day, am, pm}]。am / pm は undefined なら触らない。
+ * 返り値: 実際に書き換えた枠の数
+ */
+function updateShiftSlots_(ym, slots) {
+  var sh = book_().getSheetByName(yearSheetName_(ym));
+  if (!sh) return 0;
+
+  var byDay = Object.create(null);
+  readShift_(ym).rows.forEach(function (r) { byDay[r.day] = r; });
+
+  var changed = 0;
+  (slots || []).forEach(function (slot) {
+    var row = byDay[slot.day];
+    if (!row) return;
+    if (slot.am !== undefined && slot.am !== row.am) {
+      sh.getRange(row.row, 4).setValue(slot.am);
+      changed++;
+    }
+    if (slot.pm !== undefined && slot.pm !== row.pm) {
+      sh.getRange(row.row, 5).setValue(slot.pm);
+      changed++;
+    }
+  });
+  if (changed) SpreadsheetApp.flush();
+  return changed;
+}
+
+/**
  * その年月の当番表を年度シートから消す。〔中止〕したときだけ呼ぶ。
  * 年度シートがまだ無ければ何もしない。
  */
@@ -389,7 +422,7 @@ function clearShift_(ym) {
 
 /**
  * 年度シートから、その年月の当番表を読む（公開はシートの最新内容を送る）。
- * 返り値: {part, rows:[{day, weekday, am, pm}]}
+ * 返り値: {part, rows:[{day, weekday, am, pm, cands:[表示名], row:行番号}]}
  */
 function readShift_(ym) {
   var sh = book_().getSheetByName(yearSheetName_(ym));
@@ -415,7 +448,11 @@ function readShift_(ym) {
       day: Number(day),
       weekday: String(values[i][2] || ''),
       am: String(values[i][3] || '').trim(),
-      pm: String(values[i][4] || '').trim()
+      pm: String(values[i][4] || '').trim(),
+      cands: String(values[i][5] || '').split(',').map(function (n) {
+        return n.trim();
+      }).filter(function (n) { return n; }),
+      row: i + 2
     });
   }
   return { part: part, rows: rows };

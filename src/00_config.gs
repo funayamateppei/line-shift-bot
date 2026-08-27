@@ -97,26 +97,29 @@ function settings_() {
     groupId: realId_(map['グループID']),
     noticeDay: toInt_(map['お知らせ日'], DEFAULT_NOTICE_DAY),
     dueDay: toInt_(map['締切日'], DEFAULT_DUE_DAY),
-    webhookSecret: map['webhook合言葉'] || '',
-    entryUrl: map['入口URL'] || ''
+    webhookSecret: map['webhook合言葉'] || ''
   };
 }
 
 /**
  * ウェブアプリ（カレンダーを開く画面）の URL。
- *
- * ふつうは自分で自分の URL を取れる。取れないとき（デプロイのしかたによっては
- * 空が返る）のために、設定シートの「入口URL」で上書きできるようにしておく。
+ * まだ公開していなければ空。カードは uri ボタンを作れないので、
+ * 代わりに「画面をひらけませんでした」と伝える。
  */
 function webAppUrl_() {
-  var fixed = settings_().entryUrl;
-  if (fixed) return fixed;
   try {
     return String(ScriptApp.getService().getUrl() || '');
   } catch (e) {
     log_('ウェブアプリの URL が取れませんでした: ' + e);
     return '';
   }
+}
+
+/** LINE に登録する Webhook URL。合言葉つき */
+function webhookUrl_() {
+  var base = webAppUrl_();
+  if (!base) return '';
+  return base + '?w=' + encodeURIComponent(settings_().webhookSecret);
 }
 
 /**

@@ -296,7 +296,7 @@ function makeGas() {
       // 本物は毎回ちがう UUID を返す。鍵が重ならないことに意味があるので数える
       getUuid() {
         gas.uuidCount++;
-        return 'uuid-' + pad(gas.uuidCount, 4) + '-0000-0000-000000000000';
+        return 'uuid' + pad(gas.uuidCount, 4) + '-0000-0000-0000-000000000000';
       },
       formatDate(date, tz, fmt) {
         return fmt

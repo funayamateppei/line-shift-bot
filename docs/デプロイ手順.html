@@ -68,6 +68,7 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:24px}
 <li><span class="keep">管理者のユーザーID</span>（手順 1）</li>
 <li><span class="keep">スプレッドシート ID</span>（手順 2）</li>
 <li><span class="keep">ウェブアプリ URL</span>（手順 4）</li>
+<li><span class="keep">合言葉</span>（手順 3。<code>setup()</code> が作ります）</li>
 </ul>
 </section>
 
@@ -131,7 +132,8 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:24px}
 var CHANNEL_ACCESS_TOKEN = '（<span class="keep">チャネルアクセストークン</span>）';</pre></li>
 <li>エディタ上部の関数選択で <code>setup</code> を選び <span class="ui">実行</span>
   <ul><li>初回は権限の許可を求められます。「<strong>このアプリは Google で確認されていません</strong>」と出たら <span class="ui">詳細</span> → 「<span class="ui">（プロジェクト名）（安全ではないページ）に移動</span>」 → <span class="ui">許可</span>
-    <div class="note">審査は他人に配布する公開アプリのための仕組みです。自分のアカウントで自分の書いたスクリプトを動かすときは通す必要がありません。デベロッパー欄が自分のアドレスになっていることだけ確かめてください。</div></li><li>スプレッドシートに 5 つのタブ（設定／名簿／状態／回答ログ／当番_YYYY年度）ができる。もとからあった空のタブは自動で消えます</li></ul></li>
+    <div class="note">審査は他人に配布する公開アプリのための仕組みです。自分のアカウントで自分の書いたスクリプトを動かすときは通す必要がありません。デベロッパー欄が自分のアドレスになっていることだけ確かめてください。</div></li><li>スプレッドシートに 5 つのタブ（設定／名簿／状態／回答ログ／当番_YYYY年度）ができる。もとからあった空のタブは自動で消えます</li>
+  <li>実行ログに <strong>webhook合言葉</strong> が出ます。<span class="keep">合言葉</span>として控えてください（手順 5 で使います）。<code>設定</code> シートにも入っているので、控え忘れてもあとから見られます</li></ul></li>
 <li>スプレッドシートの <code>設定</code> タブを開き、<strong>管理者ID</strong> に <span class="keep">管理者のユーザーID</span> を貼る
   <ul><li>グループIDは手順 7 で Bot を招待すると自動で入る</li><li>お知らせ日（15）と締切日（25）は既定のままでよい。変えるときは ▼ から 1〜28 を選ぶ</li></ul></li>
 </ol>
@@ -158,22 +160,17 @@ var CHANNEL_ACCESS_TOKEN = '（<span class="keep">チャネルアクセストー
 <p class="lead">LINE に GAS の URL を教える</p>
 <ol>
 <li>LINE Developers のチャネル → <span class="ui">Messaging API 設定</span> → <strong>Webhook設定</strong></li>
-<li><strong>Webhook URL</strong> に <span class="keep">ウェブアプリ URL</span> を貼って「更新」
+<li><strong>Webhook URL</strong> に <span class="keep">ウェブアプリ URL</span> と <span class="keep">合言葉</span> をつなげたものを貼って「更新」
+<pre>https://script.google.com/macros/s/xxxxxxxx/exec?w=合言葉</pre>
+  <div class="important"><strong><code>?w=</code> を忘れると Bot は何も返しません。</strong> 手順 4 のあとに <code>setup()</code> をもう一度実行すると、そのまま貼れる形の URL を実行ログに出します（何度実行しても合言葉は作り直しません）。</div>
   <div class="note">Official Account Manager の <span class="ui">設定</span> → <span class="ui">Messaging API</span> にも同じ Webhook URL の欄があります。<strong>どちらも同じ設定</strong>で、片方に入れればもう片方にも入ります。ただし<strong>すぐには表示に反映されません</strong>。空に見えたらページをリロードしてください（「検証」ボタンは LINE Developers 側にしかありません）。</div></li>
 <li>「Webhook の利用」を <strong>オン</strong></li>
 <li>Official Account Manager の <span class="ui">設定</span> → <span class="ui">応答設定</span> に戻り、<strong>Webhook</strong> を <strong>オン</strong>にする</li>
 </ol>
 
-<h3>合言葉を付ける（おすすめ）</h3>
-<p>日付を選ぶ画面の URL はメンバー全員に配られます。つまり<strong>ウェブアプリの URL は全員が知ることになります</strong>。GAS では署名の確認ができない（HTTP ヘッダが読めない）ので、代わりに URL へ合言葉を付けて、それを知らない POST を受け取らないようにできます。</p>
-<ol>
-<li><code>設定</code> シートの <strong>webhook合言葉</strong> に、推測できない文字列を入れる（例：ランダムな 20 文字）</li>
-<li>LINE の <strong>Webhook URL</strong> を、末尾に <code>?w=</code> と合言葉を付けた形に入れ直す
-<pre>https://script.google.com/macros/s/xxxxxxxx/exec?w=合言葉</pre></li>
-<li>LINE Developers の「検証」を押し、<strong>302</strong> が返ることを確かめる（302 は正常。下を参照）</li>
-<li>手順 8 で、Bot に一言送って返事が来ることを確かめる</li>
-</ol>
-<div class="important">順番を逆にしないでください。<strong>先に合言葉を入れて、あとから URL を直す</strong>と、そのあいだ Bot が反応しなくなります。うまくいかないときは <code>設定</code> の <strong>webhook合言葉</strong> を空にすれば、すぐ元どおりになります（空のあいだは合言葉を確かめません）。</div>
+<h3>なぜ合言葉を付けるのか</h3>
+<p>日付を選ぶ画面の URL はメンバー全員に配られます。つまり<strong>ウェブアプリの URL は全員が知ることになります</strong>。GAS では HTTP ヘッダが読めず LINE の署名を確認できないので、URL が知られていないこと自体は守りになりません。合言葉を知らない POST は受け取らない、という形で代わりの検査をしています。</p>
+<div class="note">貼り違えて Bot が黙ってしまったら、<code>設定</code> シートの <strong>webhook合言葉</strong> を空にしてください。空のあいだは合言葉を確かめないので、再デプロイなしですぐ元どおりになります。落ち着いてから貼り直せます。</div>
 <div class="important"><strong>「検証」ボタンは 302 エラーになります。これは正常です。</strong> GAS のウェブアプリは <code>/exec</code> へのリクエストを必ず <code>script.googleusercontent.com</code> へ転送する作りで、検証ボタンはその転送を追いません。実際の配信は動きます。<br>
 本当に動いているかは、手順 8 で Bot に一言送って返事が来るかで確かめてください。<br>
 転送先が <code>accounts.google.com</code> の場合だけは本当の失敗です。手順 4 の「アクセスできるユーザー」が「全員」になっていません。</div>
@@ -226,8 +223,8 @@ var CHANNEL_ACCESS_TOKEN = '（<span class="keep">チャネルアクセストー
 <div class="tablewrap"><table>
 <tr><th>症状</th><th>見るところ</th></tr>
 <tr><td>Webhook の「検証」が 302 で失敗する</td><td>302 なら正常。手順 5 を参照。転送先が <code>accounts.google.com</code> のときだけ本当の失敗で、手順 4 の「アクセスできるユーザー」が「全員」になっていない</td></tr>
-<tr><td>ボタンを押しても返事がない</td><td>GAS エディタ左「実行数」でエラーを見る。トークンが正しいか。合言葉を付けたなら、Webhook URL の <code>?w=</code> と <code>設定</code> の値が一致しているか（迷ったら <code>設定</code> の <strong>webhook合言葉</strong> を空にする）</td></tr>
-<tr><td>「画面をひらけませんでした」と返る</td><td>手順 4 のデプロイができていない。できているのに出る場合は、<code>設定</code> の <strong>入口URL</strong> に <span class="keep">ウェブアプリ URL</span> を貼る</td></tr>
+<tr><td>ボタンを押しても返事がない</td><td>Webhook URL の <code>?w=</code> と <code>設定</code> の <strong>webhook合言葉</strong> が一致しているか（迷ったら <strong>webhook合言葉</strong> を空にする。合言葉なしで動くようになる）。それでも返らなければ、GAS エディタ左「実行数」でエラーを見る。トークンが正しいか</td></tr>
+<tr><td>「画面をひらけませんでした」と返る</td><td>手順 4 のウェブアプリの公開ができていない</td></tr>
 <tr><td>画面をひらくと「この画面はひらけません」</td><td>配った URL が古い。新しいデプロイを作って URL が変わっていないか（手順 4）。<code>名簿</code> のその人の <strong>鍵</strong> の列が空なら、消さずに戻すか、その人がもう一度 Bot に一言送れば入り直ります</td></tr>
 <tr><td>画面で選んだのに反映されない</td><td>画面の <span class="ui">確定</span> を押さないと保存されません。押すと「受け付けました」と出ます</td></tr>
 <tr><td>「始めますか」が来ない</td><td>トリガーが <code>daily</code> で毎日になっているか。<code>設定</code> の管理者ID が正しいか</td></tr>

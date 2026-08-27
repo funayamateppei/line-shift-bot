@@ -248,6 +248,11 @@ run 10_webhook.gs "    if (!webhookAllowed_(e)) return ContentService.createText
 run 10_webhook.gs '  var want = settings_().webhookSecret;
   if (!want) return true;' '  var want = settings_().webhookSecret;
   if (true) return true;' '合言葉を決めても素通しにする'
+run 01_setup.gs '  if (settings_().webhookSecret) return;
+  setSetting_(' "  if (true) return;
+  setSetting_(" 'setup() が合言葉を作らない'
+run 01_setup.gs '  if (settings_().webhookSecret) return;' '' '実行のたびに合言葉を作り直す'
+run 00_config.gs "  return base + '?w=' + encodeURIComponent(settings_().webhookSecret);" '  return base;' '読み上げる Webhook URL に合言葉を付けない'
 run 08_messages.gs '  if (!url) return msgNoEntry_();' '' '入口が無くてもカードを組み立てる'
 
 report

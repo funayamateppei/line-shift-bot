@@ -16,8 +16,32 @@ function setup() {
   ensureAnswerSheet_();
   ensureYearSheet_(ymOf_(new Date()));
   migrate_();
+  ensureSecret_();
   removeDefaultSheet_();
+
   log_('セットアップ完了');
+  log_('webhook合言葉：' + settings_().webhookSecret);
+  var url = webhookUrl_();
+  log_(url
+    ? 'LINE の Webhook URL には、次をそのまま登録してください：\n' + url
+    : 'ウェブアプリを公開したら、その URL の末尾に「?w=」と上の合言葉を付けて'
+      + ' LINE の Webhook URL に登録してください。');
+}
+
+/**
+ * webhook の合言葉。無ければ作る。
+ *
+ * GAS ではヘッダが読めず、LINE の署名を検証できない。守りはウェブアプリの
+ * URL が知られていないことだけだったが、日付を選ぶ画面の URL をメンバーに
+ * 配るようになって、その前提は使えなくなった（12_web.gs）。代わりの検査。
+ *
+ * 人に決めさせると誰も決めないので、setup() が作って読み上げる。
+ * 一度作った値は変えない。作り直したいときは、設定シートのセルを空にして
+ * setup() をもう一度実行し、LINE の Webhook URL も貼り直す。
+ */
+function ensureSecret_() {
+  if (settings_().webhookSecret) return;
+  setSetting_('webhook合言葉', newKey_());
 }
 
 /**
@@ -35,9 +59,7 @@ function migrate_() {
     roster.getRange(2, 6, 999, 1).setFontSize(10).setFontColor(COLOR.補足文字);
   }
   ensureSettingRow_('webhook合言葉', '',
-    'LINE に登録する Webhook URL の末尾に ?w=この値 を付ける。空なら確かめない');
-  ensureSettingRow_('入口URL', '',
-    'ふつうは空でよい。自動で取れないときだけウェブアプリの URL を貼る');
+    'setup() が作る。LINE の Webhook URL の末尾に ?w=この値 を付ける');
 }
 
 /** 設定シートにその項目が無ければ足す */
@@ -91,18 +113,17 @@ function ensureSettingsSheet_() {
   var sh = sheet_(SHEET.設定, 0);
   if (!isNewSheet_(sh)) return sh;
 
-  sh.getRange(1, 1, 7, 3).setValues([
+  sh.getRange(1, 1, 6, 3).setValues([
     ['項目', '値', '説明'],
     ['管理者ID', '', '管理者の LINE userId。LINE Developers のチャネル基本設定で確認'],
     ['グループID', '', 'Bot をグループに招待すると自動で入る'],
     ['お知らせ日', DEFAULT_NOTICE_DAY, '管理者に「始めますか」を送る日'],
     ['締切日', DEFAULT_DUE_DAY, '未回答の一覧を管理者に送る日'],
-    ['webhook合言葉', '', 'LINE に登録する Webhook URL の末尾に ?w=この値 を付ける。空なら確かめない'],
-    ['入口URL', '', 'ふつうは空でよい。自動で取れないときだけウェブアプリの URL を貼る']
+    ['webhook合言葉', '', 'setup() が作る。LINE の Webhook URL の末尾に ?w=この値 を付ける']
   ]);
   styleHeader_(sh, 3);
-  sh.getRange(2, 2, 6, 1).setBackground(COLOR.編集可);
-  sh.getRange(2, 3, 6, 1).setFontColor(COLOR.補足文字).setFontSize(10);
+  sh.getRange(2, 2, 5, 1).setBackground(COLOR.編集可);
+  sh.getRange(2, 3, 5, 1).setFontColor(COLOR.補足文字).setFontSize(10);
 
   // お知らせ日と締切日はプルダウンにする。
   // 手入力できると 31 のような値が入り、31 日のない月では一度も送られなくなる

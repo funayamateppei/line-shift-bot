@@ -105,6 +105,14 @@ function buttonData(env) {
   return found;
 }
 
+/** LINE から届いたことにして doPost を通す。合言葉は setup() が作ったもの */
+function post(env, events) {
+  return env.ctx.doPost({
+    parameter: { w: env.ctx.settings_().webhookSecret },
+    postData: { contents: JSON.stringify({ events: events }) }
+  });
+}
+
 /** その人の鍵。無ければ作られる */
 function keyOf(env, id) { return env.ctx.keyFor_(id); }
 
@@ -1187,11 +1195,11 @@ section('順番待ちが切れたとき');
   check('回答は入っていない', !ctx.hasAnswered_('2026-09', 'Ualice'));
   check('画面の失敗で LINE に送らない', env.gas.sent.length === 0);
 
-  ctx.doPost({ postData: { contents: JSON.stringify({ events: [{
+  post(env, [{
     type: 'postback', replyToken: 'tok',
     source: { type: 'user', userId: 'Uadmin' },
     postback: { data: 'a=status' }
-  }] }) } });
+  }]);
   check('ボタンにはもう一度押すよう伝える', lastReplyText(env).includes('もう一度押してください'));
   check('黙って消さない', env.gas.sent.length === 1);
 
@@ -1401,27 +1409,27 @@ section('順番待ちが切れたときに返す相手');
   env.gas.lockAvailable = false;
 
   env.gas.sent.length = 0;
-  ctx.doPost({ postData: { contents: JSON.stringify({ events: [{
+  post(env, [{
     type: 'follow', replyToken: 'tok', source: { type: 'user', userId: 'Udave' }
-  }] }) } });
+  }]);
   check('友だち追加は取りこぼさず名簿に載せる',
     ctx.rosterFind_('Udave') && ctx.rosterFind_('Udave').friend === true,
     JSON.stringify(ctx.rosterFind_('Udave')));
   check('順番待ちの文は返さない', !lastReplyText(env).includes('もう一度押してください'));
 
   env.gas.sent.length = 0;
-  ctx.doPost({ postData: { contents: JSON.stringify({ events: [{
+  post(env, [{
     type: 'message', replyToken: 'tok',
     source: { type: 'group', groupId: 'Cgroup', userId: 'Ualice' },
     message: { type: 'text', text: 'こんにちは' }
-  }] }) } });
+  }]);
   check('グループの雑談に割り込まない', env.gas.sent.length === 0);
 
   env.gas.sent.length = 0;
-  ctx.doPost({ postData: { contents: JSON.stringify({ events: [{
+  post(env, [{
     type: 'postback', replyToken: 'tok',
     source: { type: 'user', userId: 'Uadmin' }, postback: { data: 'a=status' }
-  }] }) } });
+  }]);
   check('ボタンには返す', lastReplyText(env).includes('もう一度押してください'));
 }
 
@@ -1623,6 +1631,14 @@ section('webhook の合言葉');
   joinGroupWith(env, PEOPLE);
   PEOPLE.forEach(p => follow(env, p.id));
 
+  // 入口 URL を配ると、ウェブアプリの URL はメンバー全員の知るところになる。
+  // 人に決めさせると誰も決めないので、setup() が作る
+  const secret = ctx.settings_().webhookSecret;
+  check('setup() が合言葉を作る', secret.length === 32, JSON.stringify(secret));
+
+  ctx.setup();
+  check('もう一度 setup() しても変わらない', ctx.settings_().webhookSecret === secret);
+
   const body = { postData: { contents: JSON.stringify({ events: [{
     type: 'postback', replyToken: 'tok',
     source: { type: 'user', userId: 'Uadmin' },
@@ -1631,23 +1647,25 @@ section('webhook の合言葉');
 
   env.gas.sent.length = 0;
   ctx.doPost(body);
-  check('合言葉を決めていなければ、いままでどおり通る', env.gas.sent.length === 1);
-
-  // 入口 URL をメンバーに配ると、ウェブアプリの URL は全員の知るところになる。
-  // 合言葉を決めたら、それを知らない POST は受け取らない
-  ctx.setSetting_('webhook合言葉', 'aikotoba');
-
-  env.gas.sent.length = 0;
-  ctx.doPost(body);
-  check('合言葉が要るのに付いていなければ受け取らない', env.gas.sent.length === 0);
+  check('合言葉が付いていなければ受け取らない', env.gas.sent.length === 0);
 
   env.gas.sent.length = 0;
   ctx.doPost(Object.assign({ parameter: { w: 'chigau' } }, body));
   check('合言葉がちがえば受け取らない', env.gas.sent.length === 0);
 
   env.gas.sent.length = 0;
-  ctx.doPost(Object.assign({ parameter: { w: 'aikotoba' } }, body));
+  ctx.doPost(Object.assign({ parameter: { w: secret } }, body));
   check('合言葉が合っていれば通る', env.gas.sent.length === 1);
+
+  // 登録する URL は setup() がそのまま読み上げる
+  check('Webhook URL に合言葉が付く',
+    ctx.webhookUrl_() === env.gas.webAppUrl + '?w=' + secret, ctx.webhookUrl_());
+
+  // 貼り違えて Bot が黙ったときの逃げ道
+  ctx.setSetting_('webhook合言葉', '');
+  env.gas.sent.length = 0;
+  ctx.doPost(body);
+  check('空にすれば誰でも通る（逃げ道）', env.gas.sent.length === 1);
 }
 
 section('抜けた人の回答は人数に数えない');
@@ -1932,10 +1950,10 @@ section('グループでの発言から名簿に載せる');
   gas.names['Uzoe'] = '前からいた人';
   gas.names['Uother'] = 'よその人';
 
-  const say = (uid, gid) => ctx.doPost({ postData: { contents: JSON.stringify({
-    events: [{ type: 'message', source: { type: 'group', groupId: gid, userId: uid },
-      message: { type: 'text', text: 'こんにちは' }, replyToken: 'rt' }]
-  }) } });
+  const say = (uid, gid) => post(env, [
+    { type: 'message', source: { type: 'group', groupId: gid, userId: uid },
+      message: { type: 'text', text: 'こんにちは' }, replyToken: 'rt' }
+  ]);
 
   say('Uzoe', 'Cgroup');
   const zoe = ctx.rosterFind_('Uzoe');
@@ -2046,11 +2064,11 @@ section('送ったメッセージの形');
   postback(env, 'a=publish', 'Uadmin');
   postback(env, 'a=status', 'Uadmin');           // 公開済みの状況
   env.gas.lockAvailable = false;
-  ctx.doPost({ postData: { contents: JSON.stringify({ events: [{
+  post(env, [{
     type: 'postback', replyToken: 'tok',
     source: { type: 'user', userId: 'Ualice' },
     postback: { data: 'a=mok&ym=2026-09&s=0' }
-  }] }) } });
+  }]);
   env.gas.lockAvailable = true;
   postback(env, 'a=cancel', 'Uadmin');
 

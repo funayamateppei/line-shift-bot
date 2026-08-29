@@ -534,7 +534,7 @@ offset = 0〜q−1 のランダム
 
 ## 12. データ（スプレッドシート）
 
-ID: `1VMJ8pT4M0pJFaTXZ4bOWr2BrpqJhlOQV9-S1b5BXtf0`
+ID は書かない（スクリプト プロパティ `SPREADSHEET_ID`。決定事項 42）。
 
 | タブ | 内容 | 書き方 |
 |---|---|---|

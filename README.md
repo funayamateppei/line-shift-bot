@@ -25,17 +25,44 @@ sequenceDiagram
 
 ## つくりの方針
 
-サーバーもデータベースも使わず、Google Apps Script とスプレッドシート 1 つ、LINE Messaging API だけ。
-**無料で動く・作った人がいなくても引き継げる・使う人が LINE 以外を触らない**。この 3 つを、
-技術の面白さより優先しました。
+使う人には高齢の方もいる。だから**文字を打たせない**。押すのはボタンと、カレンダーの日を
+タップするだけ。アプリの追加も、アカウント登録も、URL の入力もない。管理者も同じで、
+日程も担当もメンバーと同じつくりの画面で選ぶ。
 
-- **無料に収める** — LINE の通数は送った相手の人数で数える。聞き取りは 1 人 1 通、連絡はグループへ 1 通、
-  ボタンへの返事は数えられない reply（20 人で月 43〜63 通）。画面は webhook 用に公開済みの URL の
-  GET 側を使い回すので、ホスティングも要らない
+- **素人が運用できる** — 中身はスプレッドシートに全部出ている。おかしくなってもセルを直せば戻る。
+  サーバーもデータベースも無く、コードは GAS に 1 枚貼るだけ（[デプロイ手順](docs/デプロイ手順.html)）。
+  日付や締切の変更は、シートを書き換えれば再デプロイなしで効く
+- **無料に収める** — 20 人で月 1 回という使い方に合わせて選んだ。一斉 push を避け、画面も
+  webhook 用の URL を使い回すことで、LINE も GAS も無料枠の内側に収まる（[費用](#費用)）
 - **守りは「できないこと」から逆算** — GAS では HTTP ヘッダが読めず、LINE の署名を検証できない。
   webhook は合言葉つきの URL でしか受けず、画面をひらいた人は名簿の「鍵」で見分ける。鍵が漏れても、
   できるのはその人の回答の書き換えだけ。秘密はコードに書かず、スクリプト プロパティに置く
-- **使う人はボタンしか押さない** — 文字は打たせない。管理者もメンバーの一人で、同じつくりの画面を使う
+
+## 構成
+
+URL は 1 つだけ。**POST が webhook、GET が画面**。データはスプレッドシートに置き、
+サーバーもデータベースも持たない。秘密（シート ID・トークン）はスクリプト プロパティ。
+
+```mermaid
+flowchart LR
+    P["LINE<br/>管理者・メンバー"]
+    S[("スプレッドシート<br/>設定・名簿・状態<br/>回答ログ・当番表")]
+
+    subgraph GAS["GAS ウェブアプリ（デプロイは 1 つ）"]
+        direction TB
+        W["doPost<br/>webhook"]
+        G["doGet<br/>日付・担当を選ぶ画面"]
+        T["daily<br/>毎日 9:00 のトリガー"]
+    end
+
+    P -- "POST ?w=合言葉" --> W
+    P -- "GET ?k=鍵" --> G
+    W -- "reply / push" --> P
+    T -- push --> P
+    W <--> S
+    G <--> S
+    T <--> S
+```
 
 ## 費用
 
@@ -48,63 +75,24 @@ sequenceDiagram
 | Google Apps Script | 無料 | 1 日あたり実行 90 分・トリガー 90 分・URL 取得 20,000 回 など | 1 日に数秒〜数十秒 |
 | Google スプレッドシート | 無料 | — | シート 1 つ |
 
-LINE の通数は「送った相手の人数」で数える（グループに 1 通送ると在籍人数分）。ボタンへの返事（reply）は数えない。
-目安としてメンバー 60 人あたりまでは無料枠に収まる。
+メンバー 60 人あたりまでは無料枠に収まる見込み（2026-08 時点で見積もり）。
+無料枠と数え方は各サービスの決めごとなので、最新は一次情報を見ること。
 
-根拠：
-- [LINE Messaging API の料金](https://developers.line.biz/ja/docs/messaging-api/pricing/) — 通数の数え方、reply が無料であること
-- [LINE 公式アカウント 料金プラン](https://www.lycbiz.com/jp/service/line-official-account/plan/) — コミュニケーションプラン 200 通/月
-- [Google Apps Script の割り当て](https://developers.google.com/apps-script/guides/services/quotas) — 無料アカウントの 1 日あたりの上限
+- [LINE Messaging API の料金](https://developers.line.biz/ja/docs/messaging-api/pricing/)
+- [LINE 公式アカウント 料金プラン](https://www.lycbiz.com/jp/service/line-official-account/plan/)
+- [Google Apps Script の割り当て](https://developers.google.com/apps-script/guides/services/quotas)
 
 ## GAS に貼るコードを作る
 
 GAS のエディタにはフォルダを置けないので、`src/` の 13 ファイルを 1 枚にまとめる。
+`dist/` は Git に入れていない（`src/` から作れる）。
 
 ```sh
 node tools/bundle.js          # dist/コード.gs を作る
 node tools/bundle.js --check  # src/ とずれていないか見る
 ```
 
-できた `dist/コード.gs` を GAS の `コード.gs` にまるごと貼る。**コードは書き換えない**。
-
-スプレッドシート ID とチャネルアクセストークンは、GAS エディタの〔プロジェクトの設定〕→
-〔スクリプト プロパティ〕に入れる。
-
-| プロパティ | 値 |
-|---|---|
-| `SPREADSHEET_ID` | スプレッドシートの URL の `/d/` と `/edit` の間 |
-| `CHANNEL_ACCESS_TOKEN` | LINE Developers → Messaging API 設定 → チャネルアクセストークン（長期） |
-
-コードに書かないのは、隠すためではない（スクリプトを開ける人はプロパティも読める）。直すたびに
-`dist/コード.gs` を貼り直す作りなので、コードに書くと**貼り直すたびに 2 行を入れ直す**ことになり、
-入れ忘れれば全部落ち、古いトークンを貼れば LINE だけが黙る。プロパティなら貼り直しても消えない。
-
-`dist/` は Git に入れていない。`src/` から作れるものなので、貼る直前に生成する。
-
-貼ったあとは**ウェブアプリとしてデプロイし、`setup()` を実行する**（webhook と画面が同じ URL）。
-プロパティが空のままだと、`setup()` は「スクリプト プロパティ「SPREADSHEET_ID」が空です」と
-言って止まる。
-
-直すときは「新しいデプロイ」ではなく**既存デプロイの編集**にすること。新しく作ると URL が
-変わり、メンバーに配ってある画面の URL がすべて死ぬ。
-
-LINE に登録する Webhook URL は、末尾に合言葉を付けた `…/exec?w=（合言葉）`。合言葉は
-`setup()` が作り、実行ログと `設定` シートに出る。**`/dev` で終わる URL は使えない**
-（自分が Google にログインしているときしか開けないので、LINE から届かない）。
-
-## テスト
-
-```sh
-node test/logic.test.js   # 当番の日と割り当てを 3 通りの方法で検算
-node test/e2e.test.js     # 導入から公開までを通しで動かす
-node test/bundle.test.js  # dist が src とずれていないか
-bash test/mutation.sh     # コードをわざと壊してテストが落ちるか
-```
-
-割り当ては総当たり・動的計画法・下限つき流量の 3 通りで検算する。`mutation.sh` はコードをわざと
-114 か所壊し、すべてテストが落ちることを見る（見逃し 0）。
-`e2e` は LINE のイベントとウェブ画面の両方を通す。画面のなかの JavaScript も、生成した
-HTML から取り出して DOM のまねの上で走らせ、組み立てた形と押したときの動きを見ている。
+貼りかた、デプロイ、初期設定は [デプロイ手順](docs/デプロイ手順.html)。
 
 ## 文書
 

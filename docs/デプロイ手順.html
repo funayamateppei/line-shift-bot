@@ -127,12 +127,14 @@ footer{text-align:center;color:var(--muted);font-size:13px;padding:24px}
   <ul><li>GAS のエディタにはフォルダを置けないので、<code>src/</code> の 13 ファイルを 1 枚にまとめます</li></ul></li>
 <li>既定の <code>コード.gs</code> の中身を消して、できた <code>dist/コード.gs</code> を<strong>まるごと貼り付ける</strong>
   <ul><li>貼るのは 1 回だけ</li><li><code>appsscript.json</code> は <span class="ui">プロジェクトの設定</span> → 「appsscript.json をエディタで表示」をオンにしてから、リポジトリの <code>src/appsscript.json</code> の中身を貼る</li></ul></li>
-<li>貼ったコードの先頭にある 2 つの値を<strong>自分のものに書き換える</strong>（空で置いてあります）
-<pre>var SPREADSHEET_ID = '（<span class="keep">スプレッドシート ID</span>）';
-var CHANNEL_ACCESS_TOKEN = '（<span class="keep">チャネルアクセストークン</span>）';</pre></li>
+<li>左の歯車 <span class="ui">プロジェクトの設定</span> → 一番下 <span class="ui">スクリプト プロパティ</span> → 「スクリプト プロパティを追加」で 2 つ入れて <span class="ui">スクリプト プロパティを保存</span>
+<pre>SPREADSHEET_ID        （<span class="keep">スプレッドシート ID</span>）
+CHANNEL_ACCESS_TOKEN  （<span class="keep">チャネルアクセストークン</span>）</pre>
+  <div class="note">名前は 1 字でも違うと読めません。上の綴りをそのまま貼ってください。<strong>コードは書き換えません。</strong>直すときはコードを貼り直す（「更新のしかた」）ので、コードに書くと貼り直すたびに入れ直すことになり、入れ忘れれば全部落ち、古いトークンを貼れば LINE だけが黙ります。プロパティなら貼り直しても消えません。</div>
+  <div class="note">隠すためではありません。このスクリプトを開ける人は、プロパティも読めます。</div></li>
 <li>エディタ上部の関数選択で <code>setup</code> を選び <span class="ui">実行</span>
   <ul><li>初回は権限の許可を求められます。「<strong>このアプリは Google で確認されていません</strong>」と出たら <span class="ui">詳細</span> → 「<span class="ui">（プロジェクト名）（安全ではないページ）に移動</span>」 → <span class="ui">許可</span>
-    <div class="note">審査は他人に配布する公開アプリのための仕組みです。自分のアカウントで自分の書いたスクリプトを動かすときは通す必要がありません。デベロッパー欄が自分のアドレスになっていることだけ確かめてください。</div></li><li>スプレッドシートに 5 つのタブ（設定／名簿／状態／回答ログ／当番_YYYY年度）ができる。もとからあった空のタブは自動で消えます</li>
+    <div class="note">審査は他人に配布する公開アプリのための仕組みです。自分のアカウントで自分の書いたスクリプトを動かすときは通す必要がありません。デベロッパー欄が自分のアドレスになっていることだけ確かめてください。</div></li><li>「スクリプト プロパティ「SPREADSHEET_ID」が空です」と出て止まったら、1 つ前の手順が抜けています</li><li>スプレッドシートに 5 つのタブ（設定／名簿／状態／回答ログ／当番_YYYY年度）ができる。もとからあった空のタブは自動で消えます</li>
   <li>実行ログに <strong>webhook合言葉</strong> が出ます。<span class="keep">合言葉</span>として控えてください（手順 5 で使います）。<code>設定</code> シートにも入っているので、控え忘れてもあとから見られます</li></ul></li>
 <li>スプレッドシートの <code>設定</code> タブを開き、<strong>管理者ID</strong> に <span class="keep">管理者のユーザーID</span> を貼る
   <ul><li>グループIDは手順 7 で Bot を招待すると自動で入る</li><li>お知らせ日（15）と締切日（25）は既定のままでよい。変えるときは ▼ から 1〜28 を選ぶ</li></ul></li>
@@ -230,6 +232,7 @@ var CHANNEL_ACCESS_TOKEN = '（<span class="keep">チャネルアクセストー
 <tr><td>画面で選んだのに反映されない</td><td>画面の <span class="ui">確定</span> を押さないと保存されません。押すと「受け付けました」と出ます</td></tr>
 <tr><td>「始めますか」が来ない</td><td>トリガーが <code>daily</code> で毎日になっているか。<code>設定</code> の管理者ID が正しいか</td></tr>
 <tr><td>Bot がグループに入れない／グループID が入らない</td><td>手順 1 の「グループトーク・複数人トークへの参加」が<strong>有効</strong>か。有効にしてから、Bot を外してもう一度招待する</td></tr>
+<tr><td>「スクリプト プロパティ「…」が空です」で止まる</td><td>手順 3 の <span class="ui">プロジェクトの設定</span> → <span class="ui">スクリプト プロパティ</span> に <code>SPREADSHEET_ID</code> と <code>CHANNEL_ACCESS_TOKEN</code> が入っているか。名前の綴りと、前後に空白が入っていないかを見る</td></tr>
 <tr><td>管理者ID がわからない</td><td>LINE Developers → チャネル基本設定 → 一番下「あなたのユーザーID」</td></tr>
 </table></div>
 </section>
@@ -244,7 +247,7 @@ var CHANNEL_ACCESS_TOKEN = '（<span class="keep">チャネルアクセストー
   <ul><li>シートに列や行が増えていれば足します。<strong>既にあるデータは消えません</strong></li>
   <li>実行ログに <strong>webhook合言葉</strong> の値が出ます</li></ul></li>
 </ol>
-<p>シートのデータはそのまま残ります。<strong>Webhook URL の入れ直しも要りません</strong>（<code>setup()</code> は、すでに入っている合言葉を書き換えません。まだ合言葉を使っていない Bot に勝手に付けることもしません）。</p>
+<p>シートのデータはそのまま残ります。<strong>スクリプト プロパティも消えないので、スプレッドシート ID とトークンの入れ直しは要りません</strong>（コードに書いていないのは、このためです）。<strong>Webhook URL の入れ直しも要りません</strong>（<code>setup()</code> は、すでに入っている合言葉を書き換えません。まだ合言葉を使っていない Bot に勝手に付けることもしません）。</p>
 </section>
 
 </main>

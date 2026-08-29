@@ -240,7 +240,7 @@ function makeGas() {
           if (payload.messages.length > 5) gas.badMessages.push('1 回に 5 件を超えて送っている');
           payload.messages.forEach(m => checkMessage(m, gas.badMessages));
         }
-        sent.push({ url, method: options.method, payload });
+        sent.push({ url, method: options.method, headers: (options && options.headers) || {}, payload });
 
         // 失敗を起こしたいときに差し込む
         const fail = gas.failNext.shift();
@@ -292,6 +292,13 @@ function makeGas() {
       getService: () => ({ getUrl: () => gas.webAppUrl })
     },
 
+    // スクリプト プロパティ。本物は GAS エディタの〔プロジェクトの設定〕で人が入れる
+    PropertiesService: {
+      getScriptProperties: () => ({
+        getProperties: () => Object.assign({}, gas.scriptProperties)
+      })
+    },
+
     Utilities: {
       // 本物は毎回ちがう UUID を返す。鍵が重ならないことに意味があるので数える
       getUuid() {
@@ -311,6 +318,11 @@ function makeGas() {
 
     names: {},
     pages: [],           // doGet が返した画面
+    // 空にすると、値を入れ忘れたときの振る舞いを試せる
+    scriptProperties: {
+      SPREADSHEET_ID: 'SHEETIDTEST',
+      CHANNEL_ACCESS_TOKEN: 'TOKENTEST'
+    },
     uuidCount: 0,
     webAppUrl: 'https://script.google.com/macros/s/AKfyTEST/exec',
 

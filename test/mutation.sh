@@ -289,4 +289,8 @@ run 03_store.gs '  var byDay = Object.create(null);
   readShift_(ym).rows.forEach(function (r) { byDay[r.day] = r; });
   byDay = new Proxy(byDay, { get: function (t, k) { return t[k] || { row: 2, am: '"''"', pm: '"''"' }; } });' '当番表にない日でも書き込む'
 
+section '秘密の置き場（スクリプト プロパティ）'
+run 06_line.gs "    headers: { Authorization: 'Bearer ' + prop_('CHANNEL_ACCESS_TOKEN') }," "    headers: { Authorization: 'Bearer ' }," 'LINE にトークンを付けずに送る'
+run 00_config.gs '  if (!value) {' '  if (false) {' '値を入れ忘れても、空のまま先へ進む'
+
 report

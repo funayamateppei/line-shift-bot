@@ -1,17 +1,20 @@
 /**
  * 設定。
  *
- * 書き換えるのは下の 2 つだけ。運用で変わる値（管理者ID・グループID・お知らせ日・
- * 締切日）は「設定」シートに置く。シートを直せば再デプロイなしで反映される。
+ * 秘密の 2 つは**スクリプト プロパティ**に置く。GAS エディタの
+ * 〔プロジェクトの設定〕→〔スクリプト プロパティ〕で人が入れる。
+ *
+ *   SPREADSHEET_ID       スプレッドシートの URL の /d/ と /edit の間
+ *   CHANNEL_ACCESS_TOKEN LINE Developers → Messaging API 設定 →
+ *                        チャネルアクセストークン（長期）を発行
+ *
+ * コードに書かないのは、隠すためではない（スクリプトを開ける人はプロパティも読める）。
+ * 直すたびに dist/コード.gs を貼り直す作りなので、コードに書くと**貼り直すたびに
+ * 2 行を入れ直す**ことになり、入れ忘れれば全部落ち、古いトークンを貼れば LINE だけが黙る。
+ *
+ * 運用で変わる値（管理者ID・グループID・お知らせ日・締切日）は「設定」シートに置く。
+ * シートを直せば再デプロイなしで反映される。
  */
-
-// ===== ここだけ書き換える（空のまま置いてあります）=====
-// SPREADSHEET_ID       スプレッドシートの URL の /d/ と /edit の間
-// CHANNEL_ACCESS_TOKEN LINE Developers → Messaging API 設定 →
-//                      チャネルアクセストークン（長期）を発行
-var SPREADSHEET_ID = '';
-var CHANNEL_ACCESS_TOKEN = '';
-// =====================================================
 
 var TZ = 'Asia/Tokyo';
 
@@ -64,9 +67,31 @@ var COLOR = {
   枠線: '#cfd6dd'
 };
 
+/**
+ * スクリプト プロパティを 1 つ読む。
+ *
+ * 1 回の実行のあいだに book_() は何十回も呼ばれる。まとめて 1 回だけ読み、あとは
+ * 変数から返す（1 つずつ getProperty を呼ぶと、その回数だけ往復する）。実行が
+ * 終われば変数も消えるので、プロパティを替えたのに古い値のまま、ということは起きない。
+ *
+ * 空なら落とす。空のまま進むと openById('') の「見つかりません」や LINE の 401 になり、
+ * どこを直せばいいのか分からなくなる。
+ */
+var props_ = null;
+
+function prop_(name) {
+  if (!props_) props_ = PropertiesService.getScriptProperties().getProperties();
+  var value = String(props_[name] || '').trim();
+  if (!value) {
+    throw new Error('スクリプト プロパティ「' + name + '」が空です。GAS エディタの'
+      + '〔プロジェクトの設定〕→〔スクリプト プロパティ〕で入れてください。');
+  }
+  return value;
+}
+
 /** スプレッドシートを開く */
 function book_() {
-  return SpreadsheetApp.openById(SPREADSHEET_ID);
+  return SpreadsheetApp.openById(prop_('SPREADSHEET_ID'));
 }
 
 /**
@@ -182,7 +207,7 @@ function yearSheetName_(ym) {
 function sheetUrl_(name) {
   var sh = book_().getSheetByName(name);
   var gid = sh ? sh.getSheetId() : 0;
-  return 'https://docs.google.com/spreadsheets/d/' + SPREADSHEET_ID + '/edit#gid=' + gid;
+  return 'https://docs.google.com/spreadsheets/d/' + prop_('SPREADSHEET_ID') + '/edit#gid=' + gid;
 }
 
 function log_(message) {

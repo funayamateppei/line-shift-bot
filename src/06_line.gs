@@ -61,7 +61,7 @@ function lineCall_(method, url, payload) {
   var options = {
     method: method,
     contentType: 'application/json',
-    headers: { Authorization: 'Bearer ' + CHANNEL_ACCESS_TOKEN },
+    headers: { Authorization: 'Bearer ' + prop_('CHANNEL_ACCESS_TOKEN') },
     muteHttpExceptions: true
   };
   if (payload) options.payload = JSON.stringify(payload);

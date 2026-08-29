@@ -43,6 +43,7 @@ function newEnv(nowDate) {
     ContentService: gas.ContentService,
     HtmlService: gas.HtmlService,
     ScriptApp: gas.ScriptApp,
+    PropertiesService: gas.PropertiesService,
     Utilities: gas.Utilities
   };
   const ctx = vm.createContext(sandbox);
@@ -238,6 +239,31 @@ section('シートの作られ方');
   ctx.setup();
   check('もう一度 setup してもタブは増えない', env.gas.book.getSheets().length === 5);
   check('もう一度 setup しても中身は消えない', roster.getLastRow() === 2);
+}
+
+section('スクリプト プロパティ');
+{
+  const env = newEnv(new RealDate(2026, 7, 15, 9, 0));
+  const { ctx } = env;
+
+  ev(env, { type: 'follow', replyToken: 'tok', source: { type: 'user', userId: 'Ualice' } });
+  const auth = env.gas.sent.map(s => s.headers.Authorization);
+  check('LINE への送信にトークンが載る',
+    auth.length > 0 && auth.every(a => a === 'Bearer TOKENTEST'),
+    JSON.stringify(auth));
+
+  // 入れ忘れたとき。空のまま進ませず、どこを直すかを言って落ちること
+  env.gas.scriptProperties = {};
+  ctx.props_ = null;
+  let message = '';
+  try {
+    ctx.sheetUrl_('設定');
+  } catch (err) {
+    message = String(err.message || err);
+  }
+  check('値が空なら、プロパティ名を言って落ちる',
+    message.indexOf('SPREADSHEET_ID') >= 0 && message.indexOf('スクリプト プロパティ') >= 0,
+    message);
 }
 
 section('導入から公開まで');
